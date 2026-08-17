@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# age - the encryption behind dev-secrets.
+
+set -euo pipefail
+
+source "$(dirname "$0")/../lib/platform.sh"
+
+if command -v age >/dev/null && command -v age-keygen >/dev/null; then
+    echo "age already installed: $(age --version)"
+    exit 0
+fi
+
+install_packages age || true
+hash -r
+
+if command -v age >/dev/null && command -v age-keygen >/dev/null; then
+    echo "installed age $(age --version) from $PKG_MANAGER"
+    exit 0
+fi
+
+# Ubuntu only picked age up in 23.04; on anything older the package install
+# above is a no-op, so fall back to the upstream release.
+echo "age not available from $PKG_MANAGER; installing the upstream release"
+
+VERSION="v1.2.1"
+
+case "$(uname -m)" in
+    x86_64) ARCH="amd64" ;;
+    aarch64 | arm64) ARCH="arm64" ;;
+    *)
+        echo "Unsupported architecture: $(uname -m)" >&2
+        exit 1
+        ;;
+esac
+
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+
+curl --fail --location --progress-bar \
+    "https://github.com/FiloSottile/age/releases/download/$VERSION/age-$VERSION-linux-$ARCH.tar.gz" \
+    --output "$TMP_DIR/age.tar.gz"
+
+tar -xzf "$TMP_DIR/age.tar.gz" -C "$TMP_DIR"
+
+mkdir -p "$HOME/.local/bin"
+install -m 0755 "$TMP_DIR/age/age" "$HOME/.local/bin/age"
+install -m 0755 "$TMP_DIR/age/age-keygen" "$HOME/.local/bin/age-keygen"
+
+echo "installed age $VERSION to ~/.local/bin"

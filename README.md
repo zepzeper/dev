@@ -95,6 +95,28 @@ To pull third-party updates:
 git submodule update --remote resources/tmux-sessionizer
 ```
 
+## Secrets
+
+SSH keys and recovery codes live encrypted under `secrets/`, managed by
+`dev-secrets`. See [secrets/README.md](secrets/README.md) for the details and
+the trade-offs.
+
+The bootstrap order matters, because the SSH key needed to clone this repo
+lives *inside* it. Clone over HTTPS first:
+
+```sh
+git clone https://github.com/zepzeper/dev.git ~/personal/dev
+cd ~/personal/dev
+./dev-env age                      # install age
+dev-secrets unlock                 # passphrase from Bitwarden -> writes ~/.ssh/id_ed25519
+git remote set-url origin git@github.com:zepzeper/dev.git
+git submodule update --init --recursive
+./dev-env all
+```
+
+Submodules are cloned after the key is in place, since `env/.config/nvim` uses
+an SSH URL. Cloning with `--recurse-submodules` up front would fail.
+
 ## Package names
 
 Names diverge between distros badly enough that a shared list silently breaks.

@@ -4,3 +4,16 @@
 
 # tmux-sessionizer writes here
 .local/share/tmux-sessionizer/
+
+# Secrets: deny everything under secrets/, then allow back only the encrypted
+# artefacts. Written as a denylist so a stray plaintext file can never be
+# committed by accident - which for a private key would be unrecoverable, since
+# git history keeps it forever.
+secrets/*
+!secrets/store/
+!secrets/identity.age
+!secrets/recipient.txt
+!secrets/MANIFEST
+!secrets/README.md
+secrets/store/*
+!secrets/store/*.age
