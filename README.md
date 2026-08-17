@@ -43,9 +43,9 @@ stows `env-common` only — re-run it after `runs/desktop`.
 
 ### zsh
 
-`env/.zshenv` is the one zsh file that has to sit at `$HOME` — it is read
+`env-common/.zshenv` is the one zsh file that has to sit at `$HOME` — it is read
 first and is the only place `ZDOTDIR` can be set. It points `ZDOTDIR` at
-`~/.config/zsh`, so everything else lives in `env/.config/zsh/`. That also
+`~/.config/zsh`, so everything else lives in `env-common/.config/zsh/`. That also
 keeps oh-my-zsh's `.zcompdump` caches out of `$HOME`.
 
 Consequence worth remembering: with `ZDOTDIR` set, a `~/.zshrc` is **ignored
@@ -65,7 +65,7 @@ cd ~/personal/dev
 ./dev-env all
 ```
 
-`all` links `env/` into `$HOME` and runs every installer. It is spelled out
+`all` links the active profile into `$HOME` and runs every installer. It is spelled out
 rather than being the default because it installs packages system-wide — a
 bare `./dev-env` prints help and changes nothing. Piecemeal:
 
@@ -81,7 +81,7 @@ bare `./dev-env` prints help and changes nothing. Piecemeal:
 
 `./dev-env doctor` checks the machine and exits non-zero if anything is wrong:
 
-- every file under `env/` is linked at `$HOME` and resolves back into the repo
+- every file under each active `env-*` is linked at `$HOME` and resolves back into the repo
 - no orphaned links — files that move *inside* the repo leave links behind at
   `$HOME`, because unstow only knows the package's current contents
 - no real files blocking stow
@@ -94,7 +94,7 @@ bare `./dev-env` prints help and changes nothing. Piecemeal:
 
 | Path | Repo |
 | --- | --- |
-| `env/.config/nvim` | `zepzeper/nvim` |
+| `env-common/.config/nvim` | `zepzeper/nvim` |
 | `resources/tmux-sessionizer` | `ThePrimeagen/tmux-sessionizer` |
 
 Neovim is its own repo because it churns far more than everything else
@@ -132,7 +132,7 @@ git submodule update --init --recursive
 ./dev-env all
 ```
 
-Submodules are cloned after the key is in place, since `env/.config/nvim` uses
+Submodules are cloned after the key is in place, since `env-common/.config/nvim` uses
 an SSH URL. Cloning with `--recurse-submodules` up front would fail.
 
 ## Package names
@@ -160,8 +160,13 @@ it has not been run on the laptop yet.
   prints build instructions instead. `~/personal/ghostty/zig-out/bin` is
   already on `PATH` for that case.
 - `runs/i3` is Ubuntu-only by design; Fedora runs Hyprland.
-- `env/.config/hypr/scripts/game-submap.sh` (unbinds ALT keys while Factorio is
+- `launch-menu` calls `launch-screenrecorder` and `localsend_app`, and the hypr
+  `SUPER+SHIFT+O` binding calls `~/.local/bin/llm.sh`. None of the three exist
+  in this repo or on disk.
+- `runs/hyprland`, `runs/nvim` and the copr path in `runs/ghostty` need sudo and
+  have not been run end to end yet - only `runs/tui` and `runs/fonts` have.
+- `env-hypr/.config/hypr/scripts/game-submap.sh` (unbinds ALT keys while Factorio is
   focused) is not wired into anything. It needs an `hl.exec_cmd` line in
-  `env/.config/hypr/autostart.lua` to actually run.
-- `env/.local/scripts/misc/tmux-sessionizer` is the old homegrown sessionizer,
+  `env-hypr/.config/hypr/autostart.lua` to actually run.
+- `env-common/.local/scripts/misc/tmux-sessionizer` is the old homegrown sessionizer,
   superseded by the vendored one but kept for reference.
