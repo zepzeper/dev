@@ -23,6 +23,17 @@ resources/           vendored third-party tools (submodule)
 `env/` is a literal `$HOME` mirror, so linking is just `stow`. A file at
 `env/.config/tmux/tmux.conf` lands at `~/.config/tmux/tmux.conf`.
 
+### zsh
+
+`env/.zshenv` is the one zsh file that has to sit at `$HOME` — it is read
+first and is the only place `ZDOTDIR` can be set. It points `ZDOTDIR` at
+`~/.config/zsh`, so everything else lives in `env/.config/zsh/`. That also
+keeps oh-my-zsh's `.zcompdump` caches out of `$HOME`.
+
+Consequence worth remembering: with `ZDOTDIR` set, a `~/.zshrc` is **ignored
+entirely**. If zsh ever seems to load the wrong config, check `echo $ZDOTDIR`
+first.
+
 ## Bootstrap a machine
 
 Only `git` has to pre-exist. `stow` is the one tool the linking step itself
