@@ -27,17 +27,37 @@ for crate in impala bluetui; do
     fi
 done
 
-# launch-menu's dmenu. Note this is abenz1267/walker, the Wayland launcher -
-# the "walker" crate on crates.io is an unrelated directory-walking library, so
-# cargo install walker would silently give you the wrong thing.
+# launch-menu's dmenu.
+#
+# Not `cargo install walker`: the walker crate on crates.io is an unrelated
+# directory-walking library. Not `go install` either - walker was Go up to v1,
+# but v2 is Rust, and the lingering +incompatible module tag makes go install
+# fail with "module found, but does not contain package".
+#
+# v2 also is not a single binary: it needs the elephant daemon plus providers
+# running before it will show anything. That is a bigger install than the rest
+# of this script, so it is opt-in rather than automatic.
 if command -v walker >/dev/null; then
     echo "walker already installed: $(command -v walker)"
-elif command -v go >/dev/null; then
-    echo "installing walker (abenz1267/walker) via go"
-    GOPATH="${GOPATH:-$HOME/.local/go}" go install github.com/abenz1267/walker@latest
 else
-    echo "walker needs go - run ./dev-env dev first" >&2
+    cat <<'EOF'
+
+walker is NOT installed - launch-menu will not work.
+
+  It is a Rust GTK4 app since v2 and needs both a build toolchain and a
+  companion daemon:
+
+    sudo dnf install -y gtk4-devel gtk4-layer-shell-devel \
+        protobuf-compiler wayland-devel
+    cargo install --git https://github.com/abenz1267/walker
+    cargo install --git https://github.com/abenz1267/elephant
+
+  elephant must be running before walker will return results.
+
+  Simpler alternative: point launch-menu at a packaged launcher such as
+  fuzzel --dmenu, which is a single binary with no daemon.
+EOF
 fi
 
 echo
-echo "done - launch-wifi, launch-bluetooth and launch-menu should resolve now"
+echo "done - launch-wifi, launch-bluetooth and launch-audio resolve"
