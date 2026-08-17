@@ -24,8 +24,16 @@ dev-secrets add <name> <file> [dest] [mode]       # encrypt a file in
 dev-secrets unlock                                # write secrets to their destinations
 dev-secrets cat <name>                            # print one to stdout
 dev-secrets edit <name>                           # decrypt, edit, re-encrypt
+dev-secrets verify [name...]                      # check the store against disk
 dev-secrets list
 ```
+
+`unlock` also derives the `.pub` beside any secret that turns out to be an ssh
+private key, so there is no reason to store public keys here.
+
+`verify` decrypts each secret and compares it to the file it unlocks to,
+exiting non-zero on any mismatch. It uses `cmp -s` rather than `diff`, so a
+mismatch never prints key material.
 
 A destination of `-` means the secret has no file on disk — recovery codes, for
 example. Read those with `cat`.
