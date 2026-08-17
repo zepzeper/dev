@@ -54,7 +54,21 @@ That links `env/` into `$HOME` and runs every installer. Or piecemeal:
 ./dev-env link            # symlinks only, no packages
 ./dev-env dev docker      # just those two
 ./dev-env unlink          # back it out
+./dev-env doctor          # check this machine for problems
 ```
+
+## doctor
+
+`./dev-env doctor` checks the machine and exits non-zero if anything is wrong:
+
+- every file under `env/` is linked at `$HOME` and resolves back into the repo
+- no orphaned links — files that move *inside* the repo leave links behind at
+  `$HOME`, because unstow only knows the package's current contents
+- no real files blocking stow
+- submodules initialized, at the recorded commit, and clean
+- repo committed and pushed
+- `~/.local/scripts` and `~/.local/bin` on `PATH` — catches the case where the
+  config is right on disk but your running shell predates it (`exec zsh`)
 
 ## Submodules
 
