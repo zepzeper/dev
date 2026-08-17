@@ -8,6 +8,12 @@
 
 set -euo pipefail
 
+# Pin the system instance. Left unset, virt-install silently falls back to
+# qemu:///session whenever the process's group set lacks libvirt - and the
+# default NAT network only exists in the system instance, so creation fails
+# with "no network with matching name 'default'".
+export LIBVIRT_DEFAULT_URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
+
 VM_DIR="${VM_DIR:-$HOME/.local/share/dev-vm}"
 IMAGE_DIR="$VM_DIR/images"
 DISK_DIR="$VM_DIR/disks"
@@ -35,6 +41,27 @@ image_url() {
 
 need() { command -v "$1" >/dev/null || die "$1 missing - run: dev-env vm"; }
 
+# Fail with something actionable rather than letting virt-install get half way
+# and leave a broken domain behind.
+preflight() {
+    systemctl is-active --quiet libvirtd ||
+        die "libvirtd is not running - sudo systemctl enable --now libvirtd"
+
+    virsh list --all >/dev/null 2>&1 ||
+        die "cannot reach $LIBVIRT_DEFAULT_URI - are you in the libvirt group?"
+
+    # Membership added by runs/vm does not reach an already-running shell.
+    if ! id -nG | tr ' ' '\n' | grep -qx libvirt && getent group libvirt | grep -q "\b$USER\b"; then
+        warn "you are in the libvirt group but this shell predates it"
+        warn "log out and back in, or things may fall back to qemu:///session"
+    fi
+
+    local state
+    state="$(virsh net-info default 2>/dev/null | awk '/^Active/{print $2}')"
+    [[ "$state" == "yes" ]] ||
+        die "the 'default' network is not active - sudo virsh net-start default && sudo virsh net-autostart default"
+}
+
 cmd_create() {
     local distro="${1:-ubuntu}"
     local name="${2:-$distro}"
@@ -43,6 +70,7 @@ cmd_create() {
 
     need virt-install
     need cloud-localds
+    preflight
     [[ -f "$SSH_KEY.pub" ]] || die "no $SSH_KEY.pub - run: dev-secrets unlock"
 
     virsh dominfo "$name" >/dev/null 2>&1 && die "guest already exists: $name"
