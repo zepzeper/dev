@@ -16,12 +16,30 @@ Targets two machines:
 dev-env              orchestrator: link dotfiles, run installers
 lib/platform.sh      distro detection + per-distro package name map
 runs/                one installer per tool
-env/                 dotfile payload, mirrors $HOME exactly
+env-common/          dotfiles for every machine
+env-hypr/            Hyprland session: compositor, waybar, launch-* scripts
+env-i3/              i3 session: i3, i3status, .xprofile
+secrets/             age-encrypted secrets
 resources/           vendored third-party tools (submodule)
 ```
 
-`env/` is a literal `$HOME` mirror, so linking is just `stow`. A file at
-`env/.config/tmux/tmux.conf` lands at `~/.config/tmux/tmux.conf`.
+Each `env-*` is a literal `$HOME` mirror, so linking is just `stow`. A file at
+`env-common/.config/tmux/tmux.conf` lands at `~/.config/tmux/tmux.conf`.
+
+## Profiles
+
+`env-common` is stowed everywhere; exactly one session profile joins it. The
+laptop runs i3 on X11 and must not receive Hyprland configs or the `launch-*`
+scripts, all of which shell out to `hyprctl` or `uwsm-app` and would fail there.
+
+```sh
+./dev-env profile            # what this machine resolved to
+./dev-env profile i3         # pin it (writes .dev-profile, untracked)
+```
+
+Detection order: `$DEV_ENV_PROFILE`, then `.dev-profile`, then whichever of
+`hyprctl` / `i3` is installed. On a bare machine neither exists yet, so `link`
+stows `env-common` only — re-run it after `runs/desktop`.
 
 ### zsh
 

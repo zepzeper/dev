@@ -13,7 +13,44 @@ set -euo pipefail
 
 DEV_ENV_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNS_DIR="$DEV_ENV_HOME/runs"
-STOW_PKG="env"
+PROFILE_FILE="$DEV_ENV_HOME/.dev-profile"
+
+# env-common is stowed everywhere; exactly one session profile joins it. The
+# laptop runs i3 on X11 and must not receive Hyprland configs or the launchers
+# that shell out to hyprctl, and the workstation has no use for i3's.
+detect_profile() {
+    [[ -n "${DEV_ENV_PROFILE:-}" ]] && {
+        printf '%s' "$DEV_ENV_PROFILE"
+        return
+    }
+
+    [[ -f "$PROFILE_FILE" ]] && {
+        tr -d '[:space:]' <"$PROFILE_FILE"
+        return
+    }
+
+    # Fall back to what is actually installed. On a bare machine neither is
+    # present yet, so link stows common only; re-run after runs/desktop.
+    command -v hyprctl >/dev/null && {
+        printf 'hypr'
+        return
+    }
+    command -v i3 >/dev/null && {
+        printf 'i3'
+        return
+    }
+
+    printf ''
+}
+
+active_packages() {
+    local profile
+    profile="$(detect_profile)"
+
+    printf 'env-common\n'
+    [[ -n "$profile" ]] && printf 'env-%s\n' "$profile"
+    return 0
+}
 
 info() { printf '\n\033[1;34m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33mwarn:\033[0m %s\n' "$*" >&2; }
@@ -33,9 +70,10 @@ dev-env - set up this machine
 usage: dev-env <command>
 
 commands:
-  link            symlink env/ into \$HOME (installs stow if missing)
+  link            symlink the active profile's packages into \$HOME
   unlink          remove those symlinks
   doctor          check this machine for problems; non-zero exit if any
+  profile [name]  show or pin the session profile (hypr, i3)
   all             link, then run every installer
   <name>...       run only the named installers
   --list, -l      list available installers
@@ -65,10 +103,11 @@ ensure_stow() {
 # machine that predates this repo is a symlink into an older dotfiles dir, so
 # clear those out; anything else is a real file and the user's call.
 clear_stale_links() {
-    local target conflicts=0
+    local target conflicts=0 pkg
 
+    for pkg in $(active_packages); do
     while IFS= read -r -d '' src; do
-        target="$HOME/${src#"$DEV_ENV_HOME/$STOW_PKG/"}"
+        target="$HOME/${src#"$DEV_ENV_HOME/$pkg/"}"
 
         [[ -L "$target" ]] || continue
 
@@ -81,7 +120,8 @@ clear_stale_links() {
         warn "replacing stale link: $target -> $dest"
         rm "$target"
         conflicts=$((conflicts + 1))
-    done < <(find "$DEV_ENV_HOME/$STOW_PKG" -mindepth 1 -print0)
+    done < <(find "$DEV_ENV_HOME/$pkg" -mindepth 1 -print0)
+    done
 
     ((conflicts)) && info "cleared $conflicts stale link(s)"
     return 0
@@ -91,23 +131,30 @@ do_link() {
     ensure_stow
     clear_stale_links
 
-    info "linking $STOW_PKG -> $HOME"
+    local pkg
+    for pkg in $(active_packages); do
+        info "linking $pkg -> $HOME"
 
-    # --no-folding keeps ~/.config and ~/.local as real dirs and links the
-    # leaves, so unrelated configs living there are left alone.
-    stow --target="$HOME" --dir="$DEV_ENV_HOME" --no-folding --restow "$STOW_PKG"
+        # --no-folding keeps ~/.config and ~/.local as real dirs and links the
+        # leaves, so unrelated configs living there are left alone.
+        stow --target="$HOME" --dir="$DEV_ENV_HOME" --no-folding --restow "$pkg"
 
-    # Tracked scripts need the exec bit; git only records it if it was set at
-    # commit time, and stow just mirrors whatever is on disk.
-    find "$DEV_ENV_HOME/$STOW_PKG/.local/scripts" -type f -exec chmod +x {} +
+        # Tracked scripts need the exec bit; git only records it if it was set
+        # at commit time, and stow just mirrors whatever is on disk.
+        [[ -d "$DEV_ENV_HOME/$pkg/.local/scripts" ]] &&
+            find "$DEV_ENV_HOME/$pkg/.local/scripts" -type f -exec chmod +x {} +
+    done
 
     info "linked"
 }
 
 do_unlink() {
     ensure_stow
-    info "unlinking $STOW_PKG"
-    stow --target="$HOME" --dir="$DEV_ENV_HOME" --delete "$STOW_PKG"
+    local pkg
+    for pkg in $(active_packages); do
+        info "unlinking $pkg"
+        stow --target="$HOME" --dir="$DEV_ENV_HOME" --delete "$pkg"
+    done
 }
 
 DOCTOR_PROBLEMS=0
@@ -122,9 +169,37 @@ hint() { printf '        \033[2m%s\033[0m\n' "$*"; }
 # Everything stow is expected to link. .git is excluded because stow ignores it
 # by default, and for the nvim submodule it is a file rather than a directory.
 env_files() {
-    find "$DEV_ENV_HOME/$STOW_PKG" -type f \
-        -not -path '*/.git/*' -not -name '.git' \
-        -printf '%P\n' | sort
+    local pkg
+    for pkg in $(active_packages); do
+        find "$DEV_ENV_HOME/$pkg" -type f \
+            -not -path '*/.git/*' -not -name '.git' \
+            -printf '%P\n'
+    done | sort -u
+}
+
+# Same list, but paired with the package each file came from, so callers can
+# resolve a $HOME-relative path back to its source.
+env_files_with_pkg() {
+    local pkg
+    for pkg in $(active_packages); do
+        find "$DEV_ENV_HOME/$pkg" -type f \
+            -not -path '*/.git/*' -not -name '.git' \
+            -printf "$pkg %P\n"
+    done | sort -u -k2
+}
+
+check_profile() {
+    local profile
+    profile="$(detect_profile)"
+
+    if [[ -z "$profile" ]]; then
+        bad "no session profile detected (neither hyprctl nor i3 found)"
+        hint "install a session, or pin one: ./dev-env profile hypr"
+    elif [[ -d "$DEV_ENV_HOME/env-$profile" ]]; then
+        ok "profile: $profile ($(active_packages | tr '\n' ' '))"
+    else
+        bad "profile '$profile' has no env-$profile directory"
+    fi
 }
 
 check_stow() {
@@ -138,11 +213,12 @@ check_stow() {
 
 # Each file under env/ should exist at $HOME as a symlink resolving back here.
 check_links() {
-    local rel target src missing=0 conflict=0 foreign=0 broken=0 linked=0
+    local rel target src missing=0 conflict=0 foreign=0 broken=0 linked=0 pkg_map
+    pkg_map="$(env_files_with_pkg)"
 
     while IFS= read -r rel; do
         target="$HOME/$rel"
-        src="$DEV_ENV_HOME/$STOW_PKG/$rel"
+        src="$DEV_ENV_HOME/$(awk -v r="$rel" '$2 == r {print $1; exit}' <<<"$pkg_map")/$rel"
 
         if [[ -L "$target" ]]; then
             if [[ ! -e "$target" ]]; then
@@ -173,15 +249,22 @@ check_links() {
 
 # Files that moved or were deleted inside the repo leave links behind at $HOME:
 # unstow only knows about the package's *current* contents, so it cannot clean
-# them up. Scan just the directories env/ populates rather than all of $HOME.
+# them up. Scan just the directories the packages populate, not all of $HOME.
+#
+# Deliberately walks *every* env-* package, not only the active ones. Switching
+# profiles - or splitting one package into several - strands links in
+# directories the active profile no longer touches, and scanning only the
+# active set would report those as clean.
 check_orphans() {
     local -a dirs=()
-    local rel d found=0
+    local rel d pkg found=0
 
-    while IFS= read -r rel; do
-        d="$HOME/$(dirname "$rel")"
-        dirs+=("$d")
-    done < <(env_files)
+    for pkg in "$DEV_ENV_HOME"/env-*; do
+        [[ -d "$pkg" ]] || continue
+        while IFS= read -r rel; do
+            dirs+=("$HOME/$(dirname "$rel")")
+        done < <(find "$pkg" -type f -not -path '*/.git/*' -not -name '.git' -printf '%P\n')
+    done
 
     while IFS= read -r d; do
         [[ -d "$d" ]] || continue
@@ -271,6 +354,8 @@ check_path() {
 }
 
 do_doctor() {
+    info "profile"
+    check_profile
     info "tooling"
     check_stow
     info "PATH"
@@ -322,6 +407,16 @@ main() {
             ;;
         doctor)
             do_doctor
+            ;;
+        profile)
+            # main dispatches on $1 without shifting, so the argument is $2.
+            if [[ -n "${2:-}" ]]; then
+                [[ -d "$DEV_ENV_HOME/env-$2" ]] || die "no such profile: $2"
+                printf '%s\n' "$2" >"$PROFILE_FILE"
+                info "profile pinned to $2 - run ./dev-env link to apply"
+            else
+                printf '%s\n' "$(detect_profile)"
+            fi
             ;;
         all)
             do_link

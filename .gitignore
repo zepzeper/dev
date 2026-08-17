@@ -17,3 +17,6 @@ secrets/*
 !secrets/README.md
 secrets/store/*
 !secrets/store/*.age
+
+# Machine-local: which session profile this box uses
+.dev-profile
