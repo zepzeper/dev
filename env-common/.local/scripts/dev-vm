@@ -23,6 +23,12 @@ RAM_MB="${VM_RAM:-4096}"
 VCPUS="${VM_CPUS:-4}"
 DISK_GB="${VM_DISK:-20}"
 
+# Console login needs a password: ssh uses the injected key, but `dev-vm
+# display` drops you at a TTY where key auth does not apply. These are
+# throwaway guests on a NAT network, so a known default is fine - override
+# with VM_PASSWORD if a guest is ever reachable from anywhere else.
+PASSWORD="${VM_PASSWORD:-dev}"
+
 info() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33mwarn:\033[0m %s\n' "$*" >&2; }
 die() {
@@ -116,6 +122,11 @@ users:
     lock_passwd: false
     ssh_authorized_keys:
       - $(cat "$SSH_KEY.pub")
+chpasswd:
+  expire: false
+  list: |
+    $USER:$PASSWORD
+ssh_pwauth: false
 package_update: true
 packages: [git, curl]
 runcmd:
@@ -140,6 +151,7 @@ EOF
         --noautoconsole
 
     info "created - it is booting now"
+    echo "  login:   $USER / $PASSWORD   (console; ssh uses your key)"
     echo "  dev-vm ssh $name        once cloud-init finishes (~30s)"
     echo "  dev-vm display $name    attach a window"
 }
@@ -219,7 +231,10 @@ usage: dev-vm <command>
 Guests are created with SPICE but start headless; `display` attaches at any
 time, so the same definition covers both modes.
 
-Overrides: VM_RAM (MB), VM_CPUS, VM_DISK (GB), VM_DIR
+Console login is $USER with password 'dev' (override: VM_PASSWORD).
+ssh uses your key; password auth over ssh is disabled.
+
+Overrides: VM_RAM (MB), VM_CPUS, VM_DISK (GB), VM_DIR, VM_PASSWORD
 EOF
 }
 
