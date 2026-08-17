@@ -3,6 +3,8 @@
 # Iosevka Term has no Nerd Font glyphs, so JetBrainsMono NF backs it up for
 # icons/powerline symbols in TUIs. Order matters: primary first.
 font-family = "Iosevka Term"
+font-style = Regular
+font-size = 12
 
 theme = Rose Pine Moon
 background = 161521 
