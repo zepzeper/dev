@@ -59,8 +59,7 @@
     "tooltip-format-ethernet": "⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
     "tooltip-format-disconnected": "Disconnected",
     "interval": 3,
-    "spacing": 1,
-    "on-click": "launch-wifi"
+    "spacing": 1
   },
   "battery": {
     "format": "{capacity}% {icon}",

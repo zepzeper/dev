@@ -163,9 +163,9 @@ it has not been run on the laptop yet.
 - `launch-menu` calls `launch-screenrecorder` and `localsend_app`, and the hypr
   `SUPER+SHIFT+O` binding calls `~/.local/bin/llm.sh`. None of the three exist
   in this repo or on disk, so those branches stay broken.
-- `impala` drives **iwd**. Fedora Workstation defaults to NetworkManager with
-  the wpa_supplicant backend, so `launch-wifi` may open and list no adapters
-  until NetworkManager is switched to the iwd backend.
+- There is no wifi launcher. `impala` was dropped (it drives **iwd**, while
+  these machines run NetworkManager) and waybar's network module is now
+  display-only - the workstation is on ethernet.
 - `runs/hyprland`, `runs/nvim` and the copr path in `runs/ghostty` need sudo and
   have not been run end to end yet - only `runs/tui` and `runs/fonts` have.
 - `env-hypr/.config/hypr/scripts/game-submap.sh` (unbinds ALT keys while Factorio is

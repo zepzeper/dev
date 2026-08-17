@@ -15,10 +15,10 @@ need() {
 
 need cargo rust
 
-# launch-wifi (impala) and launch-bluetooth (bluetui). Both are genuine
+# launch-bluetooth (bluetui). A genuine
 # crates.io packages; --locked keeps a broken upstream dependency bump from
 # taking the build down.
-for crate in impala bluetui; do
+for crate in bluetui; do
     if command -v "$crate" >/dev/null; then
         echo "$crate already installed: $(command -v "$crate")"
     else
@@ -28,4 +28,4 @@ for crate in impala bluetui; do
 done
 
 echo
-echo "done - launch-wifi and launch-bluetooth resolve"
+echo "done - launch-bluetooth resolves"

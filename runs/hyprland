@@ -45,5 +45,4 @@ case "$OS" in
 esac
 
 echo
-echo "Installed. Note that walker and impala are not packaged anywhere -"
-echo "run ./dev-env tui for those."
+echo "Installed. bluetui is not packaged - run ./dev-env tui for it."

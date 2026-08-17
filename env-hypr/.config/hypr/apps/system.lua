@@ -7,7 +7,7 @@ hl.window_rule({
 })
 
 hl.window_rule({
-    match = { class = "(zepzeper.bluetui|zepzeper.impala|zepzeper.wiremix|zepzeper.btop|zepzeper.terminal|zepzeper.bash|org.gnome.Nautilus|com.gabm.satty|About|TUI.float|imv|mpv)" },
+    match = { class = "(zepzeper.bluetui|zepzeper.wiremix|zepzeper.btop|zepzeper.terminal|zepzeper.bash|org.gnome.Nautilus|com.gabm.satty|About|TUI.float|imv|mpv)" },
     tag   = "+floating-window",
 })
 
