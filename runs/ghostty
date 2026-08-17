@@ -4,6 +4,9 @@ source "$(dirname "$0")/../lib/platform.sh"
 
 case "$OS" in
     fedora)
+        # Not in Fedora proper. The workstation only had it because this copr
+        # had been enabled by hand, so a fresh machine got "no match" here.
+        enable_copr "scottames/ghostty"
         install_packages ghostty
         ;;
 

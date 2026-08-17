@@ -55,6 +55,26 @@ pkg_name() {
     esac
 }
 
+# Fedora ships no Hyprland, ghostty or neovim-nightly of its own - they come
+# from COPR. Enabling those repos was done by hand on the workstation, which is
+# why a fresh machine could not reproduce it.
+enable_copr() {
+    local repo="$1"
+
+    [[ "$PKG_MANAGER" == "dnf" ]] || {
+        echo "  skip copr $repo (not dnf)"
+        return 0
+    }
+
+    if dnf repolist 2>/dev/null | grep -qi "copr.*${repo//\//:}"; then
+        echo "  copr already enabled: $repo"
+        return 0
+    fi
+
+    echo "  enabling copr: $repo"
+    sudo dnf -q -y copr enable "$repo"
+}
+
 install_packages() {
     local canonical mapped
     local -a resolved=()

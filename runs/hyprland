@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# The Hyprland session, and everything env-hypr's scripts shell out to.
+#
+# Without this, launch-nightlight (hyprsunset), launch-or-focus / launch-tui /
+# launch-webapp (uwsm-app) and is-screen-recording (gpu-screen-recorder) are all
+# dead commands on a fresh machine.
+
+set -euo pipefail
+
+source "$(dirname "$0")/../lib/platform.sh"
+
+case "$OS" in
+    fedora)
+        # Fedora packages none of the Hyprland ecosystem itself.
+        enable_copr "lionheartp/Hyprland"
+
+        install_packages \
+            hyprland \
+            hyprlock \
+            hyprpaper \
+            hyprsunset \
+            uwsm \
+            gpu-screen-recorder \
+            waybar \
+            mako \
+            wiremix \
+            xdg-terminal-exec \
+            xdg-utils \
+            libnotify \
+            jq \
+            socat \
+            util-linux \
+            gtk3
+        ;;
+
+    ubuntu | debian)
+        # Hyprland is not in Ubuntu's archives before 24.10, and even there it
+        # lags badly. The laptop runs i3 (see runs/i3), so this is a no-op
+        # rather than a half-working build.
+        echo "Hyprland is not provisioned on $OS - this machine uses i3."
+        echo "Run: ./dev-env i3"
+        exit 0
+        ;;
+esac
+
+echo
+echo "Installed. Note that walker and impala are not packaged anywhere -"
+echo "run ./dev-env tui for those."

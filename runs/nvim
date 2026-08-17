@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Neovim. The config in env-common/.config/nvim tracks nightly features, so
+# this deliberately installs nightly rather than the distro's stable build.
+
+set -euo pipefail
+
+source "$(dirname "$0")/../lib/platform.sh"
+
+case "$OS" in
+    fedora)
+        enable_copr "agriffis/neovim-nightly"
+        install_packages neovim
+        ;;
+
+    ubuntu | debian)
+        # Ubuntu's neovim is far too old for this config, and the PPA lags too.
+        # Upstream's tarball is the dependable route.
+        # Same SIGPIPE trap as runs/fonts: `nvim --version | head -1 | grep -q`
+        # would return 141 under pipefail and re-download every run.
+        if command -v nvim >/dev/null; then
+            nvim_version="$(nvim --version 2>/dev/null | head -1 || true)"
+            if grep -qE 'v0\.(1[1-9]|[2-9][0-9])' <<<"$nvim_version"; then
+                echo "nvim already recent enough: $nvim_version"
+                exit 0
+            fi
+        fi
+
+        TMP_DIR="$(mktemp -d)"
+        trap 'rm -rf "$TMP_DIR"' EXIT
+
+        curl --fail --location --progress-bar \
+            https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-x86_64.tar.gz \
+            --output "$TMP_DIR/nvim.tar.gz"
+
+        tar -xzf "$TMP_DIR/nvim.tar.gz" -C "$TMP_DIR"
+
+        rm -rf "$HOME/.local/nvim"
+        mkdir -p "$HOME/.local/bin"
+        mv "$TMP_DIR/nvim-linux-x86_64" "$HOME/.local/nvim"
+        ln -sfn "$HOME/.local/nvim/bin/nvim" "$HOME/.local/bin/nvim"
+        ;;
+esac
+
+command -v nvim >/dev/null && nvim --version | head -1
