@@ -56,6 +56,14 @@ preflight() {
         warn "log out and back in, or things may fall back to qemu:///session"
     fi
 
+    # The hypervisor account must be able to traverse into DISK_DIR.
+    local qemu_user
+    qemu_user="$(getent passwd qemu >/dev/null && echo qemu || echo libvirt-qemu)"
+    if command -v getfacl >/dev/null && [[ -d "$DISK_DIR" ]]; then
+        getfacl -p "$DISK_DIR" 2>/dev/null | grep -q "^user:$qemu_user:" ||
+            die "$qemu_user cannot reach $DISK_DIR - run: dev-env vm"
+    fi
+
     local state
     state="$(virsh net-info default 2>/dev/null | awk '/^Active/{print $2}')"
     [[ "$state" == "yes" ]] ||

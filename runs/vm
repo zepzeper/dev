@@ -58,5 +58,26 @@ elif [[ "$(sudo virsh net-info default | awk '/^Active/{print $2}')" != "yes" ]]
     sudo virsh net-autostart default
 fi
 
+# qemu runs as its own account under qemu:///system and cannot traverse a 0700
+# $HOME, so disks kept there fail with "Cannot access storage file ... (as
+# uid:107)". Granting search along the chain is narrower than loosening the
+# mode on $HOME, and libvirt still chowns the disk itself at start.
+VM_DIR="${VM_DIR:-$HOME/.local/share/dev-vm}"
+QEMU_USER="$([[ "$OS" == fedora ]] && echo qemu || echo libvirt-qemu)"
+
+command -v setfacl >/dev/null || install_packages acl
+
+mkdir -p "$VM_DIR/disks" "$VM_DIR/images"
+
+echo "granting $QEMU_USER search access to $VM_DIR"
+d="$VM_DIR"
+while [[ "$d" != "/" && "$d" != "$(dirname "$d")" ]]; do
+    sudo setfacl -m "u:$QEMU_USER:x" "$d"
+    d="$(dirname "$d")"
+done
+sudo setfacl -R -m "u:$QEMU_USER:rx" "$VM_DIR"
+# Default ACL so disks created later inherit access without re-running this.
+sudo setfacl -d -m "u:$QEMU_USER:rwx" "$VM_DIR/disks"
+
 echo
 echo "libvirt ready. Create a test guest with: dev-vm create ubuntu"
