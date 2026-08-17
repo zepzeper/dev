@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# libvirt + KVM, for testing this repo's bootstrap without touching the host.
+#
+# The i3/Ubuntu profile and the copr installers cannot be exercised on the
+# workstation, so a throwaway guest is the only honest way to verify them.
+
+set -euo pipefail
+
+source "$(dirname "$0")/../lib/platform.sh"
+
+[[ -e /dev/kvm ]] || {
+    echo "No /dev/kvm - enable virtualisation in firmware first." >&2
+    exit 1
+}
+
+case "$OS" in
+    fedora)
+        install_packages \
+            qemu-kvm \
+            libvirt \
+            libvirt-daemon-config-network \
+            virt-install \
+            virt-viewer \
+            edk2-ovmf \
+            cloud-utils \
+            genisoimage \
+            openssh-clients
+        ;;
+    ubuntu | debian)
+        install_packages \
+            qemu-kvm \
+            libvirt-daemon-system \
+            libvirt-clients \
+            virtinst \
+            virt-viewer \
+            ovmf \
+            cloud-image-utils \
+            genisoimage
+        ;;
+esac
+
+sudo systemctl enable --now libvirtd
+
+# Without group membership every virsh call needs sudo, and dev-vm assumes it
+# does not. Takes effect on next login.
+if ! id -nG "$USER" | grep -qw libvirt; then
+    sudo usermod -aG libvirt "$USER"
+    echo
+    echo "Added $USER to the libvirt group - log out and back in for it to apply."
+fi
+
+# The default NAT network is what gives guests outbound access and dev-vm the
+# DHCP lease it resolves guest IPs from. It ships disabled on a fresh install.
+if ! sudo virsh net-info default >/dev/null 2>&1; then
+    echo "no 'default' network defined - check libvirt-daemon-config-network" >&2
+elif [[ "$(sudo virsh net-info default | awk '/^Active/{print $2}')" != "yes" ]]; then
+    sudo virsh net-start default
+    sudo virsh net-autostart default
+fi
+
+echo
+echo "libvirt ready. Create a test guest with: dev-vm create ubuntu"

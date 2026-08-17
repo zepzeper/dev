@@ -1,0 +1,203 @@
+#!/usr/bin/env bash
+# Throwaway guests for testing this repo's bootstrap.
+#
+# One definition serves both modes: the guest is created with SPICE graphics
+# but `start` never opens a window, so it costs nothing when nobody attaches.
+# `display` attaches virt-viewer to a running guest at any point - including
+# mid-install, which is how you see why a graphical step failed.
+
+set -euo pipefail
+
+VM_DIR="${VM_DIR:-$HOME/.local/share/dev-vm}"
+IMAGE_DIR="$VM_DIR/images"
+DISK_DIR="$VM_DIR/disks"
+SSH_KEY="$HOME/.ssh/id_ed25519"
+
+RAM_MB="${VM_RAM:-4096}"
+VCPUS="${VM_CPUS:-4}"
+DISK_GB="${VM_DISK:-20}"
+
+info() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33mwarn:\033[0m %s\n' "$*" >&2; }
+die() {
+    printf '\033[1;31merror:\033[0m %s\n' "$*" >&2
+    exit 1
+}
+
+image_url() {
+    case "$1" in
+        ubuntu | noble) echo "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img" ;;
+        jammy) echo "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img" ;;
+        fedora) echo "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Cloud/x86_64/images/Fedora-Cloud-Base-Generic-44-1.5.x86_64.qcow2" ;;
+        *) return 1 ;;
+    esac
+}
+
+need() { command -v "$1" >/dev/null || die "$1 missing - run: dev-env vm"; }
+
+cmd_create() {
+    local distro="${1:-ubuntu}"
+    local name="${2:-$distro}"
+    local url
+    url="$(image_url "$distro")" || die "unknown distro: $distro (ubuntu, jammy, fedora)"
+
+    need virt-install
+    need cloud-localds
+    [[ -f "$SSH_KEY.pub" ]] || die "no $SSH_KEY.pub - run: dev-secrets unlock"
+
+    virsh dominfo "$name" >/dev/null 2>&1 && die "guest already exists: $name"
+
+    mkdir -p "$IMAGE_DIR" "$DISK_DIR"
+
+    local base="$IMAGE_DIR/$(basename "$url")"
+    if [[ ! -f "$base" ]]; then
+        info "downloading $(basename "$url")"
+        curl --fail --location --progress-bar "$url" --output "$base.part"
+        mv "$base.part" "$base"
+    else
+        info "using cached $(basename "$base")"
+    fi
+
+    # Copy-on-write off the pristine download, so re-creating a guest costs a
+    # few seconds rather than another download.
+    local disk="$DISK_DIR/$name.qcow2"
+    info "creating $DISK_GB GB overlay disk"
+    qemu-img create -f qcow2 -F qcow2 -b "$base" "$disk" "${DISK_GB}G" >/dev/null
+
+    # cloud-init: no password, key-only, and the repo cloned ready to bootstrap.
+    local seed="$DISK_DIR/$name-seed.iso"
+    local tmp
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' RETURN
+
+    cat >"$tmp/user-data" <<EOF
+#cloud-config
+hostname: $name
+users:
+  - name: $USER
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: false
+    ssh_authorized_keys:
+      - $(cat "$SSH_KEY.pub")
+package_update: true
+packages: [git, curl]
+runcmd:
+  - [su, -l, $USER, -c, "git clone https://github.com/zepzeper/dev.git ~/personal/dev"]
+EOF
+    printf 'instance-id: %s\nlocal-hostname: %s\n' "$name" "$name" >"$tmp/meta-data"
+    cloud-localds "$seed" "$tmp/user-data" "$tmp/meta-data"
+
+    info "defining guest $name"
+    virt-install \
+        --name "$name" \
+        --memory "$RAM_MB" \
+        --vcpus "$VCPUS" \
+        --disk "path=$disk,format=qcow2,bus=virtio" \
+        --disk "path=$seed,device=cdrom" \
+        --os-variant "$([[ $distro == fedora ]] && echo fedora40 || echo ubuntu24.04)" \
+        --import \
+        --network network=default,model=virtio \
+        --graphics spice,listen=none \
+        --video virtio \
+        --channel spicevmc \
+        --noautoconsole
+
+    info "created - it is booting now"
+    echo "  dev-vm ssh $name        once cloud-init finishes (~30s)"
+    echo "  dev-vm display $name    attach a window"
+}
+
+guest_ip() {
+    local name="$1" ip=""
+    local mac
+    mac="$(virsh domiflist "$name" 2>/dev/null | awk '/network/{print $5; exit}')"
+    [[ -n "$mac" ]] || return 1
+    ip="$(virsh net-dhcp-leases default 2>/dev/null |
+        awk -v m="$mac" '$0 ~ m {print $5}' | cut -d/ -f1 | head -1)"
+    [[ -n "$ip" ]] || return 1
+    printf '%s' "$ip"
+}
+
+cmd_start() {
+    local name="${1:?usage: dev-vm start <name>}"
+    virsh start "$name" 2>/dev/null || info "$name already running"
+}
+
+cmd_stop() {
+    local name="${1:?usage: dev-vm stop <name>}"
+    virsh shutdown "$name"
+}
+
+cmd_display() {
+    local name="${1:?usage: dev-vm display <name>}"
+    need virt-viewer
+    virsh domstate "$name" | grep -q running || cmd_start "$name"
+    # Detached, so the terminal stays usable while the window is open.
+    setsid virt-viewer --attach "$name" >/dev/null 2>&1 &
+    info "attached a display to $name"
+}
+
+cmd_ssh() {
+    local name="${1:?usage: dev-vm ssh <name>}"
+    shift || true
+    local ip
+    ip="$(guest_ip "$name")" ||
+        die "no DHCP lease for $name yet - it may still be booting"
+    exec ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        "$USER@$ip" "$@"
+}
+
+cmd_destroy() {
+    local name="${1:?usage: dev-vm destroy <name>}"
+    virsh destroy "$name" 2>/dev/null || true
+    virsh undefine "$name" --nvram 2>/dev/null || virsh undefine "$name"
+    rm -f "$DISK_DIR/$name.qcow2" "$DISK_DIR/$name-seed.iso"
+    info "removed $name (cached base image kept)"
+}
+
+cmd_list() {
+    virsh list --all
+    printf '\n%-16s %s\n' GUEST IP
+    local n
+    while read -r n; do
+        [[ -z "$n" ]] && continue
+        printf '%-16s %s\n' "$n" "$(guest_ip "$n" || echo '-')"
+    done < <(virsh list --name)
+}
+
+usage() {
+    cat <<'EOF'
+dev-vm - throwaway guests for testing the bootstrap
+
+usage: dev-vm <command>
+
+  create [distro] [name]   ubuntu (default), jammy, fedora
+  start <name>             boot headless
+  display <name>           attach a window to a running guest
+  ssh <name> [cmd...]      shell in over the NAT lease
+  stop <name>              graceful shutdown
+  destroy <name>           delete guest and its disk
+  list                     guests and their IPs
+
+Guests are created with SPICE but start headless; `display` attaches at any
+time, so the same definition covers both modes.
+
+Overrides: VM_RAM (MB), VM_CPUS, VM_DISK (GB), VM_DIR
+EOF
+}
+
+case "${1:-}" in
+    create) cmd_create "${2:-ubuntu}" "${3:-}" ;;
+    start) cmd_start "${2:-}" ;;
+    stop) cmd_stop "${2:-}" ;;
+    display) cmd_display "${2:-}" ;;
+    ssh)
+        shift
+        cmd_ssh "$@"
+        ;;
+    destroy) cmd_destroy "${2:-}" ;;
+    list) cmd_list ;;
+    "" | -h | --help | help) usage ;;
+    *) die "unknown command: ${1} (try --help)" ;;
+esac
