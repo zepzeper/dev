@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Bootstrap / update this machine.
 #
-#   ./dev-env                 link dotfiles, then run every installer
+#   ./dev-env                 print help (does not change anything)
+#   ./dev-env all             link dotfiles, then run every installer
 #   ./dev-env link            link dotfiles only
 #   ./dev-env unlink          remove the symlinks stow created
 #   ./dev-env dev docker      run only the named installers
@@ -23,6 +24,30 @@ die() {
 
 list_runs() {
     find "$RUNS_DIR" -maxdepth 1 -type f -printf '%f\n' | sort
+}
+
+usage() {
+    cat <<EOF
+dev-env - set up this machine
+
+usage: dev-env <command>
+
+commands:
+  link            symlink env/ into \$HOME (installs stow if missing)
+  unlink          remove those symlinks
+  doctor          check this machine for problems; non-zero exit if any
+  all             link, then run every installer
+  <name>...       run only the named installers
+  --list, -l      list available installers
+  --help, -h      this message
+
+installers:
+$(list_runs | sed 's/^/  /')
+
+Running with no arguments prints this help. Use 'all' to provision the
+machine - it installs packages system-wide and is not what you want to
+trigger by accident.
+EOF
 }
 
 ensure_stow() {
@@ -298,10 +323,13 @@ main() {
         doctor)
             do_doctor
             ;;
-        "")
+        all)
             do_link
             run_all
             info "done"
+            ;;
+        "" | -h | --help | help)
+            usage
             ;;
         *)
             local name

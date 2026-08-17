@@ -44,10 +44,12 @@ way `link` works on a bare machine before any installer has run. It is also in
 ```sh
 git clone --recurse-submodules git@github.com:zepzeper/dev.git ~/personal/dev
 cd ~/personal/dev
-./dev-env
+./dev-env all
 ```
 
-That links `env/` into `$HOME` and runs every installer. Or piecemeal:
+`all` links `env/` into `$HOME` and runs every installer. It is spelled out
+rather than being the default because it installs packages system-wide — a
+bare `./dev-env` prints help and changes nothing. Piecemeal:
 
 ```sh
 ./dev-env --list          # available installers
