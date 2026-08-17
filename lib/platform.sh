@@ -50,6 +50,9 @@ pkg_name() {
 
         # Ubuntu. UNVERIFIED - no Ubuntu box to test against yet.
         apt:go) echo "golang-go" ;;
+        apt:libnotify) echo "libnotify-bin" ;;
+        apt:util-linux) echo "util-linux" ;;
+        apt:gtk3) echo "libgtk-3-bin" ;;
 
         *) echo "$p" ;;
     esac

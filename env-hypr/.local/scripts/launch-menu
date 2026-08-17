@@ -4,11 +4,15 @@
 # Main menu launcher that calls specific menu functions
 # Usage: launch-menu <menu_name>
 
+# rofi rather than walker: rofi 2.0 speaks Wayland natively and is packaged,
+# where walker v2 is a from-source Rust build that additionally needs the
+# elephant daemon running before it returns anything. rofi also works on X11,
+# so this script is no longer Wayland-bound.
 show_menu() {
     local prompt="$1"
     local options="$2"
-    
-    echo -e "$options" | walker -p "$prompt"
+
+    echo -e "$options" | rofi -dmenu -p "$prompt"
 }
 
 show_screenrecord_menu() {
@@ -46,7 +50,7 @@ show_apps_menu() {
     done | sort -u)
     
     # Show the menu
-    selected=$(echo "$app_list" | walker --dmenu -p "Launch App")
+    selected=$(echo "$app_list" | rofi -dmenu -p "Launch App")
     
     # Launch if something was selected
     if [ -n "$selected" ]; then

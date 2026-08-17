@@ -22,6 +22,7 @@ case "$OS" in
             uwsm \
             gpu-screen-recorder \
             waybar \
+            rofi \
             mako \
             wiremix \
             xdg-terminal-exec \

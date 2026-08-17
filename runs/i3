@@ -1,15 +1,30 @@
 #!/usr/bin/env bash
+# The i3 session for the laptop.
+
+set -euo pipefail
 
 source "$(dirname "$0")/../lib/platform.sh"
 
 case "$OS" in
-    ubuntu)
-          # apparently it may be one or the other...
-          sudo apt install i3-wm
-          sudo apt install i3
+    ubuntu | debian)
+        # i3 is the metapackage; i3-wm is the compositor alone. Installing the
+        # metapackage pulls i3-wm in, so the old "try one, then the other" pair
+        # of unguarded `apt install` calls was redundant - and neither was
+        # checked, so a failure went unnoticed.
+        install_packages \
+            i3 \
+            i3status \
+            rofi \
+            dmenu \
+            xss-lock \
+            jq \
+            libnotify-bin \
+            xdg-utils
         ;;
 
     fedora)
-          echo "We don't use that here"
+        # The workstation runs Hyprland - see runs/hyprland.
+        echo "i3 is not provisioned on Fedora; this machine uses Hyprland."
+        exit 0
         ;;
 esac
