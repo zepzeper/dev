@@ -25,6 +25,11 @@ resources/           vendored third-party tools (submodule)
 
 ## Bootstrap a machine
 
+Only `git` has to pre-exist. `stow` is the one tool the linking step itself
+depends on, so `dev-env` installs it on demand rather than assuming it — that
+way `link` works on a bare machine before any installer has run. It is also in
+`runs/dev`, so a normal full run keeps it up to date.
+
 ```sh
 git clone --recurse-submodules git@github.com:zepzeper/dev.git ~/personal/dev
 cd ~/personal/dev
