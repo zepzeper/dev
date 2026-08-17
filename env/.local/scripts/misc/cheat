@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+# Resources live next to this script. The old absolute /home/zepzeper/.local/bin
+# path was wrong on both counts: wrong directory, and it broke under any other
+# username on the work laptop.
+RESOURCES="$(dirname "$(readlink -f "$0")")/resources"
+
+selected=`cat $RESOURCES/.tmux-cht-languages $RESOURCES/.tmux-cht-command | fzf`
+if [[ -z $selected ]]; then
+    exit 0
+fi
+
+read -p "Enter query: " query
+
+if grep -qs "$selected" $RESOURCES/.tmux-cht-languages; then
+    tmux neww bash -c "curl cht.sh/$selected/$query & while [ : ]; do sleep 1; done"
+else
+    tmux neww bash -c "curl -s cht.sh/$selected~$query | less"
+fi

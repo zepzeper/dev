@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Put the vendored tmux-sessionizer on PATH.
+#
+# It lives in resources/ as a submodule rather than being copied into env/, so
+# it can be updated with `git submodule update --remote`. ~/.local/bin is ahead
+# of ~/.local/scripts on PATH (see .zsh_profile), which is what the bare
+# `tmux-sessionizer` in the zsh and tmux bindings resolves to.
+
+set -euo pipefail
+
+DEV_ENV_HOME="$(cd "$(dirname "$0")/.." && pwd)"
+SRC="$DEV_ENV_HOME/resources/tmux-sessionizer/tmux-sessionizer"
+
+if [[ ! -f "$SRC" ]]; then
+    echo "submodule not checked out; run: git -C $DEV_ENV_HOME submodule update --init" >&2
+    exit 1
+fi
+
+chmod +x "$SRC"
+mkdir -p "$HOME/.local/bin"
+ln -sfn "$SRC" "$HOME/.local/bin/tmux-sessionizer"
+
+echo "linked $HOME/.local/bin/tmux-sessionizer -> $SRC"

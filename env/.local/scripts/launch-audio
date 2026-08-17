@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+# Launch audio controls TUI (provided by wiremix).
+launch-or-focus-tui wiremix

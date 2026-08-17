@@ -1,0 +1,6 @@
+*.swp
+*.swo
+.DS_Store
+
+# tmux-sessionizer writes here
+.local/share/tmux-sessionizer/

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# PATH-exposed wrapper around the repo's dev-env, so you can run it from
+# anywhere. DEV_ENV_HOME is exported by .zsh_profile.
+
+set -euo pipefail
+
+exec "${DEV_ENV_HOME:-$HOME/personal/dev}/dev-env" "$@"

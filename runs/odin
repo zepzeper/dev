@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ODIN_DIR="$HOME/.local/odin"
+BIN_DIR="$HOME/.local/bin"
+
+REPO="odin-lang/Odin"
+API_URL="https://api.github.com/repos/$REPO/releases/latest"
+
+echo "Installing Odin..."
+echo
+
+case "$(uname -m)" in
+    x86_64)
+        ARCH="amd64"
+        ;;
+    aarch64|arm64)
+        ARCH="arm64"
+        ;;
+    *)
+        echo "Unsupported architecture: $(uname -m)"
+        exit 1
+        ;;
+esac
+
+echo "Architecture: $ARCH"
+
+RELEASE_JSON="$(curl -fsSL "$API_URL")"
+
+VERSION="$(
+    echo "$RELEASE_JSON" |
+        grep '"tag_name":' |
+        head -n 1 |
+        sed -E 's/.*"tag_name": "([^"]+)".*/\1/'
+)"
+
+if [[ -z "$VERSION" ]]; then
+    echo "Failed to determine latest Odin release."
+    exit 1
+fi
+
+echo "Version: $VERSION"
+
+DOWNLOAD_URL="$(
+    echo "$RELEASE_JSON" |
+        grep '"browser_download_url":' |
+        grep "odin-linux-${ARCH}" |
+        grep '\.tar\.gz"' |
+        head -n 1 |
+        sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/'
+)"
+
+if [[ -z "$DOWNLOAD_URL" ]]; then
+    echo "Could not find an Odin Linux release for architecture: $ARCH"
+    exit 1
+fi
+
+ARCHIVE_NAME="${DOWNLOAD_URL##*/}"
+
+echo "Download: $ARCHIVE_NAME"
+echo
+
+TMP_DIR="$(mktemp -d)"
+
+trap 'rm -rf "$TMP_DIR"' EXIT
+
+echo "Downloading Odin..."
+
+curl \
+    --fail \
+    --location \
+    --progress-bar \
+    "$DOWNLOAD_URL" \
+    --output "$TMP_DIR/$ARCHIVE_NAME"
+
+echo "Extracting..."
+
+tar \
+    -xzf "$TMP_DIR/$ARCHIVE_NAME" \
+    -C "$TMP_DIR"
+
+# Find extracted directory.
+ODIN_SOURCE="$(
+    find "$TMP_DIR" \
+        -mindepth 1 \
+        -maxdepth 1 \
+        -type d \
+        ! -name "$(basename "$TMP_DIR")" |
+        head -n 1
+)"
+
+if [[ -z "$ODIN_SOURCE" ]]; then
+    echo "Could not find extracted Odin directory."
+    exit 1
+fi
+
+echo "Installing to $ODIN_DIR..."
+mkdir -p "$HOME/.local"
+rm -rf "$ODIN_DIR"
+mv "$ODIN_SOURCE" "$ODIN_DIR"
+ln -sfn "$ODIN_DIR/odin" "$BIN_DIR/odin"
+
+if [[ ! -x "$ODIN_DIR/odin" ]]; then
+    echo "Odin installation failed."
+    exit 1
+fi
+
+"$ODIN_DIR/odin" version

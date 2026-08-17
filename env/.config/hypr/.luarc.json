@@ -1,0 +1,11 @@
+{
+    "diagnostics.globals": [
+        "hl"
+    ],
+    "diagnostics.disable": [
+        "inject-field",
+        "undefined-field",
+        "missing-fields",
+        "undefined-doc-name"
+    ]
+}

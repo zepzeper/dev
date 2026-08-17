@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+source "$(dirname "$0")/../lib/platform.sh"
+
+# php-curl is skipped on Fedora (it lives in php-common) and php-zip maps to
+# php-pecl-zip there - see pkg_name() in lib/platform.sh.
+install_packages \
+    php \
+    php-cli \
+    php-mbstring \
+    php-xml \
+    php-curl \
+    php-zip

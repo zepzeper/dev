@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+
+# LAUNCH MENU
+# Main menu launcher that calls specific menu functions
+# Usage: launch-menu <menu_name>
+
+show_menu() {
+    local prompt="$1"
+    local options="$2"
+    
+    echo -e "$options" | walker -p "$prompt"
+}
+
+show_screenrecord_menu() {
+    case $(show_menu "Screenrecord" "With desktop audio\nWith microphone audio\nWith webcam") in
+        *desktop*) 
+            notify-send "Starting recording" "Desktop audio only"
+            launch-screenrecorder --with-desktop-audio
+            ;;
+        *microphone*) 
+            notify-send "Starting recording" "Desktop + microphone audio"
+            launch-screenrecorder --with-desktop-audio --with-microphone-audio
+            ;;
+        *webcam*) 
+            notify-send "Starting recording" "Desktop + microphone + webcam"
+            launch-screenrecorder --with-desktop-audio --with-microphone-audio --with-webcam
+            ;;
+        *) 
+            exit 0
+            ;;
+    esac
+}
+
+show_localsend_menu() {
+    localsend_app
+}
+
+show_apps_menu() {
+    # Build a simple list first
+    app_list=$(for dir in /run/current-system/sw/share/applications /usr/share/applications ~/.local/share/applications; do
+        [ ! -d "$dir" ] && continue
+        for desktop_file in "$dir"/*.desktop; do
+            [ ! -f "$desktop_file" ] && continue
+            basename "$desktop_file" .desktop
+        done
+    done | sort -u)
+    
+    # Show the menu
+    selected=$(echo "$app_list" | walker --dmenu -p "Launch App")
+    
+    # Launch if something was selected
+    if [ -n "$selected" ]; then
+        gtk-launch "$selected.desktop" &
+    fi
+}
+
+case "${1,,}" in
+    screenrecord)
+        show_screenrecord_menu
+        ;;
+    localsend)
+        show_localsend_menu
+        ;;
+    apps)
+        show_apps_menu
+        ;;
+    *)
+        echo "Usage: launch-menu <menu_name>"
+        echo ""
+        echo "Available menus:"
+        echo "  screenrecord - Screen recording options"
+        echo "  localsend    - LocalSend share options"
+        echo "  apps         - Launch applications"
+        echo ""
+        exit 1
+        ;;
+esac

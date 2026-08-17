@@ -1,0 +1,44 @@
+-- Control your input devices
+-- See https://wiki.hypr.land/Configuring/Basics/Variables/#input
+
+hl.config({
+    input = {
+        -- Use multiple keyboard layouts and switch between them with Left Alt + Right Alt
+        -- kb_layout = "us,dk,eu",
+        kb_layout  = "us",
+        kb_options = "compose:caps", -- ,grp:alts_toggle
+
+        -- Change speed of keyboard repeat
+        repeat_rate  = 40,
+        repeat_delay = 600,
+
+        -- Start with numlock on by default
+        numlock_by_default = true,
+
+        follow_mouse = 1,
+
+        sensitivity = 0, -- -1.0 - 1.0, 0 means no modification.
+
+        touchpad = {
+            -- Use natural (inverse) scrolling
+            -- natural_scroll = true,
+
+            -- Use two-finger clicks for right-click instead of lower-right corner
+            -- clickfinger_behavior = true,
+
+            -- Control the speed of your scrolling
+            scroll_factor = 0.4,
+
+            -- Enable the touchpad while typing
+            -- disable_while_typing = false,
+
+            -- Left-click-and-drag with three fingers
+            -- drag_3fg = 1,
+        },
+    },
+
+    misc = {
+        key_press_enables_dpms  = true, -- key press will trigger wake
+        mouse_move_enables_dpms = true, -- mouse move will trigger wake
+    },
+})

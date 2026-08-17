@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+source "$(dirname "$0")/../lib/platform.sh"
+
+install_packages \
+    git \
+    stow \
+    just \
+    gimp \
+    tldr \
+    go \
+    fzf \
+    btop \
+    gcc \
+    nodejs \
+    npm \
+    ffmpeg \
+    jq \
+    socat \
+    curl \
+    unzip
+
+# GOPATH is set to ~/.local/go by .zsh_profile; honour it here too so `air`
+# lands on PATH rather than in ~/go.
+GOPATH="${GOPATH:-$HOME/.local/go}" go install github.com/air-verse/air@latest

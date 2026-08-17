@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+# Launch the passed in URL as a web app in the default browser (or chromium if the default doesn't support --app).
+
+url="$1"
+shift
+
+browser=$(xdg-settings get default-web-browser)
+case $browser in
+google-chrome* | brave-browser* | microsoft-edge* | opera* | vivaldi* | helium*) ;;
+*) browser="chromium.desktop" ;;
+esac
+
+# Check fast locations first (symlinked current system)
+for dir in /run/current-system/sw/share/applications ~/.local/share/applications /usr/share/applications; do
+    if [ -f "$dir/$browser" ]; then
+        browser_exec=$(sed -n 's/^Exec=\([^ ]*\).*/\1/p' "$dir/$browser" | head -1)
+        [ -n "$browser_exec" ] && break
+    fi
+done
+
+# Fallback: use browser name without .desktop
+if [ -z "$browser_exec" ]; then
+    browser_exec="${browser%.desktop}"
+fi
+
+exec setsid uwsm-app -- "$browser_exec" --app="$url" "$@"

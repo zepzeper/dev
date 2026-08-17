@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+source "$(dirname "$0")/../lib/platform.sh"
+
+case "$OS" in
+    ubuntu)
+          # apparently it may be one or the other...
+          sudo apt install i3-wm
+          sudo apt install i3
+        ;;
+
+    fedora)
+          echo "We don't use that here"
+        ;;
+esac

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Commit and push whatever changed across the dev env.
+#
+# nvim and tmux-sessionizer are submodules, so they have to be committed and
+# pushed *before* the superproject - otherwise the pointer this repo records
+# refers to a commit that only exists on this machine.
+
+set -uo pipefail
+
+DEV_ENV_HOME="${DEV_ENV_HOME:-$HOME/personal/dev}"
+MESSAGE="${1:-automated dev commit}"
+
+commit_repo() {
+    local path="$1"
+    local label="$2"
+
+    [[ -d "$path" ]] || {
+        echo "skip $label: $path missing"
+        return 0
+    }
+
+    if [[ -z "$(git -C "$path" status --porcelain)" ]]; then
+        echo "skip $label: clean"
+    else
+        echo "==> $label"
+        git -C "$path" add -A
+        git -C "$path" commit -m "$MESSAGE"
+    fi
+
+    # Push even when clean - a previous run may have committed without pushing.
+    if git -C "$path" remote get-url origin >/dev/null 2>&1; then
+        git -C "$path" push
+    else
+        echo "skip push $label: no origin"
+    fi
+}
+
+commit_repo "$DEV_ENV_HOME/env/.config/nvim" "nvim (submodule)"
+commit_repo "$DEV_ENV_HOME" "dev"

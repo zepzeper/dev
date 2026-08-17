@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+# Bootstrap / update this machine.
+#
+#   ./dev-env                 link dotfiles, then run every installer
+#   ./dev-env link            link dotfiles only
+#   ./dev-env unlink          remove the symlinks stow created
+#   ./dev-env dev docker      run only the named installers
+#   ./dev-env --list          show available installers
+
+set -euo pipefail
+
+DEV_ENV_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RUNS_DIR="$DEV_ENV_HOME/runs"
+STOW_PKG="env"
+
+info() { printf '\n\033[1;34m==>\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33mwarn:\033[0m %s\n' "$*" >&2; }
+die() {
+    printf '\033[1;31merror:\033[0m %s\n' "$*" >&2
+    exit 1
+}
+
+list_runs() {
+    find "$RUNS_DIR" -maxdepth 1 -type f -printf '%f\n' | sort
+}
+
+ensure_stow() {
+    command -v stow >/dev/null && return 0
+
+    info "stow is required for linking; installing it"
+    source "$DEV_ENV_HOME/lib/platform.sh"
+    install_packages stow
+    hash -r
+
+    command -v stow >/dev/null || die "stow install failed"
+}
+
+# stow refuses to overwrite anything already in place. The usual blocker on a
+# machine that predates this repo is a symlink into an older dotfiles dir, so
+# clear those out; anything else is a real file and the user's call.
+clear_stale_links() {
+    local target conflicts=0
+
+    while IFS= read -r -d '' src; do
+        target="$HOME/${src#"$DEV_ENV_HOME/$STOW_PKG/"}"
+
+        [[ -L "$target" ]] || continue
+
+        local dest
+        dest="$(readlink -f "$target" || true)"
+
+        # Already pointing into this repo: stow will no-op, leave it.
+        [[ "$dest" == "$DEV_ENV_HOME"/* ]] && continue
+
+        warn "replacing stale link: $target -> $dest"
+        rm "$target"
+        conflicts=$((conflicts + 1))
+    done < <(find "$DEV_ENV_HOME/$STOW_PKG" -mindepth 1 -print0)
+
+    ((conflicts)) && info "cleared $conflicts stale link(s)"
+    return 0
+}
+
+do_link() {
+    ensure_stow
+    clear_stale_links
+
+    info "linking $STOW_PKG -> $HOME"
+
+    # --no-folding keeps ~/.config and ~/.local as real dirs and links the
+    # leaves, so unrelated configs living there are left alone.
+    stow --target="$HOME" --dir="$DEV_ENV_HOME" --no-folding --restow "$STOW_PKG"
+
+    # Tracked scripts need the exec bit; git only records it if it was set at
+    # commit time, and stow just mirrors whatever is on disk.
+    find "$DEV_ENV_HOME/$STOW_PKG/.local/scripts" -type f -exec chmod +x {} +
+
+    info "linked"
+}
+
+do_unlink() {
+    ensure_stow
+    info "unlinking $STOW_PKG"
+    stow --target="$HOME" --dir="$DEV_ENV_HOME" --delete "$STOW_PKG"
+}
+
+run_one() {
+    local name="$1"
+    local script="$RUNS_DIR/$name"
+
+    [[ -f "$script" ]] || die "no such installer: $name (try --list)"
+
+    info "run: $name"
+    bash "$script"
+}
+
+run_all() {
+    local name
+    for name in $(list_runs); do
+        run_one "$name"
+    done
+}
+
+main() {
+    case "${1:-}" in
+        --list | -l)
+            list_runs
+            ;;
+        link)
+            do_link
+            ;;
+        unlink)
+            do_unlink
+            ;;
+        "")
+            do_link
+            run_all
+            info "done"
+            ;;
+        *)
+            local name
+            for name in "$@"; do
+                run_one "$name"
+            done
+            ;;
+    esac
+}
+
+main "$@"

@@ -1,0 +1,27 @@
+# Font
+# Repeated font-family entries form a per-codepoint fallback chain.
+# Iosevka Term has no Nerd Font glyphs, so JetBrainsMono NF backs it up for
+# icons/powerline symbols in TUIs. Order matters: primary first.
+font-family = "Iosevka Term"
+font-family = "JetBrainsMonoNL Nerd Font Mono"
+font-style = Regular
+font-size = 12
+
+theme = Rose Pine Moon
+background = 161521 
+confirm-close-surface=false
+#theme = Rose Pine Moon
+#theme = Nord Wave
+#theme = Gruvbox 
+#background-opacity = 0.85
+confirm-close-surface=false
+
+gtk-titlebar = false
+window-decoration = none
+
+# window-padding-x = 10
+# window-padding-y = 5
+
+# Disable Ctrl+Enter fullscreen keybind
+keybind = ctrl+enter=unbind
+

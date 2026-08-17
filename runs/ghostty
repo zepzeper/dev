@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+source "$(dirname "$0")/../lib/platform.sh"
+
+case "$OS" in
+    fedora)
+        install_packages ghostty
+        ;;
+
+    ubuntu | debian)
+        # Ghostty is not in Ubuntu's archives. Upstream ships no .deb either,
+        # so it has to be built. .zsh_profile already puts
+        # ~/personal/ghostty/zig-out/bin on PATH, which is where this lands.
+        if command -v ghostty >/dev/null; then
+            echo "ghostty already on PATH: $(command -v ghostty)"
+            exit 0
+        fi
+
+        echo "Ghostty has no Ubuntu package - build it from source:"
+        echo
+        echo "  sudo apt-get install -y libgtk-4-dev libadwaita-1-dev git"
+        echo "  # install zig, then:"
+        echo "  git clone https://github.com/ghostty-org/ghostty ~/personal/ghostty"
+        echo "  cd ~/personal/ghostty && zig build -Doptimize=ReleaseFast"
+        echo
+        echo "~/personal/ghostty/zig-out/bin is already on PATH via .zsh_profile."
+        ;;
+esac

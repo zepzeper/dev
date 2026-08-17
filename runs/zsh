@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+source "$(dirname "$0")/../lib/platform.sh"
+
+install_packages zsh
+hash -r
+
+ZSH_BIN="$(command -v zsh)"
+
+# `sudo chsh -s "$ZSH_BIN"` with no username changes *root's* shell, not yours.
+# The target user has to be named explicitly.
+if [[ "$SHELL" != "$ZSH_BIN" ]]; then
+    sudo chsh -s "$ZSH_BIN" "$USER"
+    echo "Login shell set to $ZSH_BIN (takes effect on next login)"
+else
+    echo "Login shell already $ZSH_BIN"
+fi
+
+if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
+    # Unattended, and don't let the installer write its own .zshrc over ours.
+    RUNZSH=no KEEP_ZSHRC=yes \
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+else
+    echo "oh-my-zsh already installed"
+fi
