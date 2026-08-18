@@ -1,71 +1,38 @@
 #!/usr/bin/env bash
-# Fonts the ghostty config names.
-#
-# Neither is packaged: Fedora's jetbrains-mono-fonts is the plain family, not
-# the Nerd Font patch, and Iosevka is not in the archives at all.
+# Fonts the ghostty config names. Neither is packaged: Fedora's
+# jetbrains-mono-fonts is the plain family, not the Nerd Font patch, and
+# Iosevka is not in the archives at all.
 
 set -euo pipefail
 
-FONT_DIR="$HOME/.local/share/fonts"
-NERD_VERSION="v3.4.0"
+source "$(dirname "$0")/../lib/release.sh"
 
-mkdir -p "$FONT_DIR"
+FONT_DIR="$HOME/.local/share/fonts"
 
 # Deliberately not `fc-list | grep -q`: grep exits at the first match and
-# closes the pipe, fc-list dies of SIGPIPE, and `set -o pipefail` surfaces that
-# as 141. The test would read as "not installed" on every run.
+# closes the pipe, fc-list dies of SIGPIPE, and pipefail surfaces that as 141.
+# The test would read as "not installed" on every run.
 have_family() {
     local listing
     listing="$(fc-list : family 2>/dev/null || true)"
     grep -qi "$1" <<<"$listing"
 }
 
-fetch_archive() {
-    local name="$1" url="$2" ext="$3"
-
-    local tmp
-    tmp="$(mktemp -d)"
-    # shellcheck disable=SC2064
-    trap "rm -rf '$tmp'" RETURN
-
-    curl --fail --location --progress-bar "$url" --output "$tmp/font.$ext"
-
-    rm -rf "${FONT_DIR:?}/$name"
-    mkdir -p "$FONT_DIR/$name"
-
-    case "$ext" in
-        zip) unzip -qo "$tmp/font.$ext" -d "$FONT_DIR/$name" ;;
-        tar.xz) tar -xJf "$tmp/font.$ext" -C "$FONT_DIR/$name" ;;
-    esac
-
-    find "$FONT_DIR/$name" -type f ! -name '*.ttf' ! -name '*.otf' -delete
-}
-
 # The nerd-fonts IosevkaTerm build registers as "IosevkaTerm NF", NOT
 # "Iosevka Term" - a different family from the one the ghostty config names, so
 # ghostty never found its primary font and fell back on every launch. Upstream
-# Iosevka is the build that carries the expected family name.
+# Iosevka is the build carrying the expected family name.
 if have_family "Iosevka Term"; then
     echo "Iosevka Term already installed"
 else
-    echo "installing Iosevka Term (upstream)"
-    IOSEVKA_URL="$(curl -fsSL https://api.github.com/repos/be5invis/Iosevka/releases/latest |
-        grep '"browser_download_url":' |
-        grep -i 'PkgTTF-IosevkaTerm-' |
-        head -n1 |
-        sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/')"
-
-    [[ -n "$IOSEVKA_URL" ]] || {
-        echo "could not resolve an Iosevka release" >&2
-        exit 1
-    }
-
     command -v unzip >/dev/null || {
         echo "unzip is required - run: ./dev-env dev" >&2
         exit 1
     }
-
-    fetch_archive IosevkaTerm "$IOSEVKA_URL" zip
+    echo "installing Iosevka Term (upstream)"
+    extract_archive \
+        "$(github_asset be5invis/Iosevka 'PkgTTF-IosevkaTerm-')" \
+        "$FONT_DIR/IosevkaTerm" 0
 fi
 
 # The nerd-font patch supplies the glyph coverage Iosevka lacks; the ghostty
@@ -74,11 +41,12 @@ if have_family "JetBrainsMono.*Nerd"; then
     echo "JetBrainsMono Nerd Font already installed"
 else
     echo "installing JetBrainsMono Nerd Font"
-    fetch_archive JetBrainsMono \
-        "https://github.com/ryanoasis/nerd-fonts/releases/download/$NERD_VERSION/JetBrainsMono.tar.xz" \
-        tar.xz
+    extract_archive \
+        "$(github_asset ryanoasis/nerd-fonts 'JetBrainsMono\.tar\.xz')" \
+        "$FONT_DIR/JetBrainsMono" 0
 fi
 
+find "$FONT_DIR" -type f ! -name '*.ttf' ! -name '*.otf' -delete
 fc-cache -f "$FONT_DIR" >/dev/null
 
 echo

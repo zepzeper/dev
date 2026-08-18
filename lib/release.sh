@@ -45,14 +45,11 @@ arch_name() {
     esac
 }
 
-# Download an archive, unpack it, and install it as ~/.local/<name> with
-# <name>/<relbin> symlinked onto PATH. Handles the single-top-level-directory
-# layout every one of these projects happens to use.
-#
-#   install_release odin "$url" odin
-install_release() {
-    local name="$1" url="$2" relbin="${3:-$1}"
-    local dest="$HOME/.local/$name"
+# Unpack a remote archive into <dest>, replacing whatever was there. Used
+# directly by things that are not a single binary (fonts), and by
+# install_release below.
+extract_archive() {
+    local url="$1" dest="$2" strip_top="${3:-1}"
     local tmp
     tmp="$(mktemp -d)"
     # shellcheck disable=SC2064
@@ -73,20 +70,38 @@ install_release() {
 
     rm -f "$tmp/archive"
 
-    # Most archives hold one top-level dir; some unpack flat.
-    local src
-    src="$(find "$tmp" -mindepth 1 -maxdepth 1 -type d | head -n1)"
-    [[ -n "$src" ]] || src="$tmp"
+    local src="$tmp"
+    if ((strip_top)); then
+        # Most of these archives hold a single top-level directory; some are
+        # flat, in which case there is nothing to strip.
+        local top
+        top="$(find "$tmp" -mindepth 1 -maxdepth 1 -type d | head -n1)"
+        [[ -n "$top" ]] && src="$top"
+    fi
 
     rm -rf "$dest"
-    mkdir -p "$HOME/.local/bin"
+    mkdir -p "$(dirname "$dest")"
     mv "$src" "$dest"
+}
+
+# Install an upstream archive as ~/.local/<name>, with <relbin> symlinked onto
+# PATH. <linkname> defaults to the binary's basename - pass it when the
+# launcher is named differently from the command you want (helium-wrapper).
+#
+#   install_release odin "$url" odin
+#   install_release helium "$url" helium-wrapper helium
+install_release() {
+    local name="$1" url="$2" relbin="${3:-$1}" linkname="${4:-}"
+    local dest="$HOME/.local/$name"
+
+    extract_archive "$url" "$dest"
 
     [[ -x "$dest/$relbin" ]] || {
         echo "expected $relbin inside the archive" >&2
         return 1
     }
 
-    ln -sfn "$dest/$relbin" "$HOME/.local/bin/${relbin##*/}"
-    echo "installed ~/.local/bin/${relbin##*/}"
+    mkdir -p "$HOME/.local/bin"
+    ln -sfn "$dest/$relbin" "$HOME/.local/bin/${linkname:-${relbin##*/}}"
+    echo "installed ~/.local/bin/${linkname:-${relbin##*/}}"
 }

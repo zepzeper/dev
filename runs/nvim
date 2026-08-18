@@ -1,66 +1,58 @@
 #!/usr/bin/env bash
-# Neovim. The config in env-common/.config/nvim tracks nightly features, so
-# this deliberately installs nightly rather than the distro's stable build.
+# Neovim. The config tracks nightly features, so this deliberately installs
+# nightly rather than the distro's stable build.
 
 set -euo pipefail
 
 source "$(dirname "$0")/../lib/platform.sh"
+source "$(dirname "$0")/../lib/release.sh"
 
-case "$OS" in
-    fedora)
-        enable_copr "agriffis/neovim-nightly"
-        install_packages neovim
-        ;;
+DEV_ENV_HOME="$(cd "$(dirname "$0")/.." && pwd)"
+NVIM_SM="env-common/.config/nvim"
 
-    ubuntu | debian)
-        # Ubuntu's neovim is far too old for this config, and the PPA lags too.
-        # Upstream's tarball is the dependable route.
-        # Same SIGPIPE trap as runs/fonts: `nvim --version | head -1 | grep -q`
-        # would return 141 under pipefail and re-download every run.
-        if command -v nvim >/dev/null; then
-            nvim_version="$(nvim --version 2>/dev/null | head -1 || true)"
-            if grep -qE 'v0\.(1[1-9]|[2-9][0-9])' <<<"$nvim_version"; then
-                echo "nvim already recent enough: $nvim_version"
-                exit 0
-            fi
+install_nvim() {
+    case "$OS" in
+        fedora)
+            enable_copr "agriffis/neovim-nightly"
+            install_packages neovim
+            return
+            ;;
+    esac
+
+    # Ubuntu's neovim is far too old for this config and the PPA lags too.
+    # Never `nvim --version | head -1 | grep -q`: head closes the pipe, nvim
+    # dies of SIGPIPE and pipefail reports 141, so the check always fails.
+    if command -v nvim >/dev/null; then
+        local version
+        version="$(nvim --version 2>/dev/null | head -1 || true)"
+        if grep -qE 'v0\.(1[1-9]|[2-9][0-9])' <<<"$version"; then
+            echo "nvim already recent enough: $version"
+            return
         fi
+    fi
 
-        TMP_DIR="$(mktemp -d)"
-        trap 'rm -rf "$TMP_DIR"' EXIT
+    install_release nvim \
+        "https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-$(arch_name x86_64 arm64).tar.gz" \
+        bin/nvim
+}
 
-        curl --fail --location --progress-bar \
-            https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-x86_64.tar.gz \
-            --output "$TMP_DIR/nvim.tar.gz"
-
-        tar -xzf "$TMP_DIR/nvim.tar.gz" -C "$TMP_DIR"
-
-        rm -rf "$HOME/.local/nvim"
-        mkdir -p "$HOME/.local/bin"
-        mv "$TMP_DIR/nvim-linux-x86_64" "$HOME/.local/nvim"
-        ln -sfn "$HOME/.local/nvim/bin/nvim" "$HOME/.local/bin/nvim"
-        ;;
-esac
+install_nvim
 
 # The config lives in a submodule. A plain `git clone` - the https bootstrap,
 # and dev-vm's cloud-init - leaves it empty, and stow then links nothing, so
 # nvim starts with no configuration at all.
 #
-# The submodule URL is ssh so it can be pushed to, but a machine that has not
-# run `dev-secrets unlock` yet has no key. Fall back to https for a read-only
-# checkout; `git remote set-url` inside the submodule restores push access.
-DEV_ENV_HOME="$(cd "$(dirname "$0")/.." && pwd)"
-NVIM_SM="env-common/.config/nvim"
-
+# The submodule url is ssh so it stays pushable, but a machine that has not run
+# `dev-secrets unlock` has no key. Fall back to https for a read-only checkout;
+# `git remote set-url` inside the submodule restores push access.
 if [[ -z "$(ls -A "$DEV_ENV_HOME/$NVIM_SM" 2>/dev/null)" ]]; then
     echo "nvim config submodule is empty; checking it out"
 
     if ! git -C "$DEV_ENV_HOME" submodule update --init "$NVIM_SM" 2>/dev/null; then
         echo "  ssh failed (no key yet?) - retrying over https"
-
-        # A url rewrite rather than -c submodule.<path>.url: `git submodule
-        # update` copies the url into .git/config on the first attempt, so the
-        # per-submodule override is ignored once that has happened. insteadOf
-        # is applied at transport level and wins either way.
+        # A url rewrite rather than -c submodule.<path>.url: submodule update
+        # copies the url into .git/config on the first attempt, so the
+        # per-submodule override is ignored once that has happened.
         git -C "$DEV_ENV_HOME" \
             -c "url.https://github.com/.insteadOf=git@github.com:" \
             submodule update --init "$NVIM_SM"
@@ -70,9 +62,6 @@ if [[ -z "$(ls -A "$DEV_ENV_HOME/$NVIM_SM" 2>/dev/null)" ]]; then
     "$DEV_ENV_HOME/dev-env" link >/dev/null
 fi
 
-# Report via the absolute path and never let this line set the exit code:
-# ~/.local/bin is not on PATH yet during a fresh bootstrap, so `command -v
-# nvim` failing here made a successful install report failure.
 if [[ -x "$HOME/.local/bin/nvim" ]]; then
     "$HOME/.local/bin/nvim" --version | head -1
 elif command -v nvim >/dev/null; then

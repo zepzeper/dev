@@ -4,11 +4,9 @@
 set -euo pipefail
 
 source "$(dirname "$0")/../lib/platform.sh"
+source "$(dirname "$0")/../lib/release.sh"
 
-if command -v helium >/dev/null; then
-    echo "helium already installed: $(command -v helium)"
-    exit 0
-fi
+have helium && exit 0
 
 case "$OS" in
     fedora)
@@ -20,50 +18,14 @@ case "$OS" in
     ubuntu | debian)
         # Upstream ships an AppImage and a tarball, no .deb, so this lands in
         # ~/.local like odin and the nvim nightly rather than via apt.
-        case "$(uname -m)" in
-            x86_64) ARCH="x86_64" ;;
-            aarch64 | arm64) ARCH="arm64" ;;
-            *)
-                echo "No helium build for $(uname -m)" >&2
-                exit 1
-                ;;
-        esac
+        # Upstream ships an AppImage and a tarball, no .deb, so this lands in
+        # ~/.local like odin and the nvim nightly rather than via apt.
+        ARCH="$(arch_name x86_64 arm64)"
+        URL="$(github_asset imputnet/helium-linux "${ARCH}_linux\.tar\.xz")"
 
-        URL="$(curl -fsSL https://api.github.com/repos/imputnet/helium-linux/releases/latest |
-            grep '"browser_download_url":' |
-            grep "${ARCH}_linux\.tar\.xz\"" |
-            head -n1 |
-            sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/')"
-
-        [[ -n "$URL" ]] || {
-            echo "Could not resolve a helium tarball for $ARCH" >&2
-            exit 1
-        }
-
-        TMP_DIR="$(mktemp -d)"
-        trap 'rm -rf "$TMP_DIR"' EXIT
-
-        echo "downloading $(basename "$URL")"
-        curl --fail --location --progress-bar "$URL" --output "$TMP_DIR/helium.tar.xz"
-        tar -xJf "$TMP_DIR/helium.tar.xz" -C "$TMP_DIR"
-
-        SRC="$(find "$TMP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n1)"
-        [[ -n "$SRC" ]] || {
-            echo "unexpected archive layout" >&2
-            exit 1
-        }
-
-        rm -rf "$HOME/.local/helium"
-        mkdir -p "$HOME/.local/bin"
-        mv "$SRC" "$HOME/.local/helium"
-
-        # Link the launcher, not the raw `chrome` binary next to it: the
-        # wrapper sets up the profile dir and flags Chromium forks expect.
-        for entry in helium-wrapper helium chrome; do
-            [[ -x "$HOME/.local/helium/$entry" ]] || continue
-            ln -sfn "$HOME/.local/helium/$entry" "$HOME/.local/bin/helium"
-            break
-        done
+        # Link the launcher, not the raw `chrome` binary beside it: the wrapper
+        # sets up the profile dir and the flags chromium forks expect.
+        install_release helium "$URL" helium-wrapper helium
 
         # Without a .desktop entry xdg-open has no browser to hand a URL to, so
         # every webapp binding silently does nothing - xdg-settings reports an

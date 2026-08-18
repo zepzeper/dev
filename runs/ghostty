@@ -3,11 +3,9 @@
 set -euo pipefail
 
 source "$(dirname "$0")/../lib/platform.sh"
+source "$(dirname "$0")/../lib/release.sh"
 
-if command -v ghostty >/dev/null; then
-    echo "ghostty already installed: $(ghostty --version 2>/dev/null | head -1)"
-    exit 0
-fi
+have ghostty && exit 0
 
 case "$OS" in
     fedora)
@@ -24,25 +22,15 @@ case "$OS" in
         # match the version the copr gives Fedora, keeping both machines level.
         REPO="mkasberg/ghostty-ubuntu"
 
-        case "$(dpkg --print-architecture)" in
-            amd64) ARCH="amd64" ;;
-            arm64) ARCH="arm64" ;;
-            *)
-                echo "No ghostty build for $(dpkg --print-architecture)" >&2
-                exit 1
-                ;;
-        esac
+        ARCH="$(arch_name amd64 arm64)"
 
         # Ubuntu assets are keyed by version (24.04), Debian's by codename.
         [[ "$OS" == "ubuntu" ]] && TAG="$VERSION_ID" || TAG="$VERSION_CODENAME"
 
         echo "looking for a ghostty build for $OS $TAG/$ARCH"
 
-        URL="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" |
-            grep '"browser_download_url":' |
-            grep "_${ARCH}_${TAG}\.deb" |
-            head -n1 |
-            sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/')"
+        # A .deb, so apt installs it - install_release is for tarballs.
+        URL="$(github_asset "$REPO" "_${ARCH}_${TAG}\.deb" || true)"
 
         if [[ -z "$URL" ]]; then
             echo "No prebuilt ghostty for $OS $TAG/$ARCH." >&2
