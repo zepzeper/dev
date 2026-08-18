@@ -1,72 +1,136 @@
-* {
-  background-color: transparent;
-  color: @foreground;
+/* i3bar's default palette, verbatim from i3's stock config. */
+@define-color bar-bg           #000000;
+@define-color statusline       #ffffff;
+@define-color separator        #666666;
 
+@define-color ws-focused-bg    #285577;
+@define-color ws-focused-bd    #4c7899;
+@define-color ws-focused-fg    #ffffff;
+
+@define-color ws-active-bg     #5f676a;
+@define-color ws-active-bd     #333333;
+
+@define-color ws-inactive-bg   #222222;
+@define-color ws-inactive-bd   #333333;
+@define-color ws-inactive-fg   #888888;
+
+@define-color ws-urgent-bg     #900000;
+@define-color ws-urgent-bd     #2f343a;
+
+/* i3status colour_bad / colour_degraded. */
+@define-color bad              #ff0000;
+@define-color degraded         #ffaa00;
+
+* {
   border: none;
   border-radius: 0;
   min-height: 0;
   /* Iosevka Term has no icon glyphs; pango falls back per-glyph to
-     JetBrainsMono Nerd Font for the module icons. */
+     JetBrainsMono Nerd Font, which the tray-adjacent modules can still need. */
   font-family: 'Iosevka Term', 'JetBrainsMono Nerd Font';
   font-size: 12px;
 }
 
-.modules-left {
-  margin-left: 8px;
+window#waybar {
+  background-color: @bar-bg;
+  color: @statusline;
 }
 
-.modules-right {
-  margin-right: 8px;
-}
-
+/* Workspace buttons: bordered boxes, butted up against each other, exactly
+   like i3bar draws them. */
 #workspaces button {
-  all: initial;
   padding: 0 6px;
-  margin: 0 1.5px;
+  margin: 1px 0 1px 1px;
   min-width: 9px;
+  background-color: @ws-inactive-bg;
+  border: 1px solid @ws-inactive-bd;
+  color: @ws-inactive-fg;
 }
 
-#workspaces button.empty {
-  opacity: 0.5;
+#workspaces button.visible {
+  background-color: @ws-active-bg;
+  border-color: @ws-active-bd;
+  color: @statusline;
 }
 
+#workspaces button.active {
+  background-color: @ws-focused-bg;
+  border-color: @ws-focused-bd;
+  color: @ws-focused-fg;
+}
+
+#workspaces button.urgent {
+  background-color: @ws-urgent-bg;
+  border-color: @ws-urgent-bd;
+  color: @statusline;
+}
+
+#workspaces button:hover {
+  background-color: @ws-active-bg;
+  border-color: @ws-active-bd;
+  color: @statusline;
+}
+
+/* Binding mode indicator, styled like i3's binding_mode colours. */
+#submap {
+  padding: 0 6px;
+  margin: 1px 0 1px 4px;
+  background-color: @ws-urgent-bg;
+  border: 1px solid @ws-urgent-bd;
+  color: @statusline;
+}
+
+/* Status blocks: plain text, separated by i3status' thin vertical rule. The
+   left-most block (#pulseaudio) deliberately has no rule in front of it. */
+#pulseaudio,
+#bluetooth,
+#network,
+#disk,
 #cpu,
 #battery,
-#pulseaudio,
-#custom-update {
-  min-width: 12px;
-  margin: 0 7.5px;
+#clock,
+#tray {
+  padding: 0 9px;
+  color: @statusline;
+}
+
+#bluetooth,
+#network,
+#disk,
+#cpu,
+#battery,
+#clock,
+#tray {
+  border-left: 1px solid @separator;
+}
+
+#battery.warning {
+  color: @degraded;
+}
+
+#battery.critical {
+  color: @bad;
+}
+
+#network.disconnected,
+#pulseaudio.muted {
+  color: @degraded;
 }
 
 #tray {
-  margin-right: 16px;
-}
-
-#bluetooth {
-  margin-right: 17px;
-}
-
-#network {
-  margin-right: 13px;
-}
-
-#custom-expand-icon {
-  margin-right: 18px;
+  padding-right: 4px;
 }
 
 tooltip {
+  background-color: @bar-bg;
+  border: 1px solid @separator;
   padding: 2px;
 }
 
-#custom-update {
-  font-size: 10px;
-}
-
-#clock {
-  margin-left: 8.75px;
+tooltip label {
+  color: @statusline;
 }
 
 .hidden {
   opacity: 0;
 }
-

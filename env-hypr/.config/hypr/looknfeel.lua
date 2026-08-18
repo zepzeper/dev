@@ -9,7 +9,7 @@ hl.config({
 
         -- https://wiki.hypr.land/Configuring/Basics/Variables/ for info about colors
         col = {
-            active_border   = { colors = { "rgba(33ccffee)", "rgba(00ff99ee)" }, angle = 45 },
+            active_border   = { colors = { "rgba(00000000)", "rgba(00000000)" }, angle = 45 },
             inactive_border = "rgba(595959aa)",
         },
 
@@ -23,8 +23,8 @@ hl.config({
     },
 
     decoration = {
-        rounding       = 10,
-        rounding_power = 2,
+        rounding       = 0,
+        rounding_power = 0,
 
         -- Change transparency of focused and unfocused windows.
         -- NOTE: carried over verbatim from the old config, but values above 1.0

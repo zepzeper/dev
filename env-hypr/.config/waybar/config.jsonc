@@ -1,35 +1,24 @@
 {
   "reload_style_on_change": true,
   "layer": "top",
-  "position": "top",
+  "position": "bottom",
   "spacing": 0,
-  "height": 26,
-  "modules-left": ["hyprland/workspaces"],
-  "modules-center": ["clock"],
+  "height": 22,
+  "modules-left": ["hyprland/workspaces", "hyprland/submap"],
+  "modules-center": [],
   "modules-right": [
+    "pulseaudio",
     "bluetooth",
     "network",
-    "pulseaudio",
+    "disk",
     "cpu",
-    "battery"
+    "battery",
+    "clock",
+    "tray"
   ],
   "hyprland/workspaces": {
     "on-click": "activate",
-    "format": "{icon}",
-    "format-icons": {
-      "default": "",
-      "1": "1",
-      "2": "2",
-      "3": "3",
-      "4": "4",
-      "5": "5",
-      "6": "6",
-      "7": "7",
-      "8": "8",
-      "9": "9",
-      "10": "0",
-      "active": "󱓻"
-    },
+    "format": "{name}",
     "persistent-workspaces": {
       "1": [],
       "2": [],
@@ -38,40 +27,56 @@
       "5": []
     }
   },
-  "cpu": {
-    "interval": 5,
-    "format": "󰍛",
-    "on-click": "launch-or-focus-tui btop",
-    "on-click-right": "alacritty"
-  },
-  "clock": {
-    "format": "{:L%A %H:%M}",
-    "format-alt": "{:L%d %B W%V %Y}",
+  "hyprland/submap": {
+    "format": "{}",
     "tooltip": false
   },
+  "pulseaudio": {
+    "format": "vol {volume}%",
+    "format-muted": "vol mute",
+    "format-bluetooth": "vol {volume}% bt",
+    "on-click": "launch-audio",
+    "on-click-right": "pamixer -t",
+    "tooltip": false,
+    "scroll-step": 5
+  },
+  "bluetooth": {
+    "format": "bt on",
+    "format-off": "bt off",
+    "format-disabled": "bt off",
+    "format-connected": "bt {num_connections}",
+    "format-no-controller": "",
+    "tooltip-format": "Devices connected: {num_connections}",
+    "on-click": "launch-bluetooth"
+  },
   "network": {
-    "format-icons": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],
-    "format": "{icon}",
-    "format-wifi": "{icon}",
-    "format-ethernet": "󰀂",
-    "format-disconnected": "󰤮",
+    "format-wifi": "{essid} {signalStrength}%",
+    "format-ethernet": "eth",
+    "format-linked": "{ifname} (no IP)",
+    "format-disconnected": "down",
     "tooltip-format-wifi": "{essid} ({frequency} GHz)\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
     "tooltip-format-ethernet": "⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
     "tooltip-format-disconnected": "Disconnected",
-    "interval": 3,
-    "spacing": 1
+    "interval": 3
+  },
+  "disk": {
+    "path": "/",
+    "format": "/ {free}",
+    "tooltip-format": "{used} used of {total} on {path}",
+    "interval": 30
+  },
+  "cpu": {
+    "interval": 5,
+    "format": "load {load}",
+    "on-click": "launch-or-focus-tui btop",
+    "on-click-right": "alacritty"
   },
   "battery": {
-    "format": "{capacity}% {icon}",
-    "format-discharging": "{icon}",
-    "format-charging": "{icon}",
-    "format-plugged": "",
-    "format-icons": {
-      "charging": ["󰢜", "󰂆", "󰂇", "󰂈", "󰢝", "󰂉", "󰢞", "󰂊", "󰂋", "󰂅"],
-      "default": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"]
-    },
-    "format-full": "󰂅",
-    "tooltip-format-discharging": "{power:>1.0f}W↓ {capacity}%",
+    "format": "bat {capacity}%",
+    "format-charging": "chr {capacity}%",
+    "format-plugged": "ac {capacity}%",
+    "format-full": "full",
+    "tooltip-format-discharging": "{power:>1.0f}W↓ {capacity}% ({time} left)",
     "tooltip-format-charging": "{power:>1.0f}W↑ {capacity}%",
     "interval": 5,
     "states": {
@@ -79,30 +84,14 @@
       "critical": 10
     }
   },
-  "bluetooth": {
-    "format": "",
-    "format-off": "󰂲",
-    "format-disabled": "󰂲",
-    "format-connected": "󰂱",
-    "format-no-controller": "",
-    "tooltip-format": "Devices connected: {num_connections}",
-    "on-click": "launch-bluetooth"
-  },
-  "pulseaudio": {
-    "format": "{icon}",
-    "on-click": "launch-audio",
-    "on-click-right": "pamixer -t",
-    "tooltip-format": "Playing at {volume}%",
-    "scroll-step": 5,
-    "format-muted": "",
-    "format-icons": {
-      "headphone": "",
-      "headset": "",
-      "default": ["", "", ""]
-    }
+  "clock": {
+    "interval": 1,
+    "format": "{:%Y-%m-%d %H:%M:%S}",
+    "format-alt": "{:L%A %d %B W%V}",
+    "tooltip": false
   },
   "tray": {
-    "icon-size": 12,
-    "spacing": 17
+    "icon-size": 14,
+    "spacing": 8
   }
 }
