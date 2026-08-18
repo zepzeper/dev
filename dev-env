@@ -14,6 +14,7 @@ set -euo pipefail
 DEV_ENV_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNS_DIR="$DEV_ENV_HOME/runs"
 PROFILE_FILE="$DEV_ENV_HOME/.dev-profile"
+FORCE_LINK=0
 
 # env-common is stowed everywhere; exactly one session profile joins it. The
 # laptop runs i3 on X11 and must not receive Hyprland configs or the launchers
@@ -70,7 +71,8 @@ dev-env - set up this machine
 usage: dev-env <command>
 
 commands:
-  link            symlink the active profile's packages into \$HOME
+  link [--force]  symlink the active profile's packages into \$HOME
+                  --force moves conflicting real files to a backup first
   unlink          remove those symlinks
   doctor          check this machine for problems; non-zero exit if any
   profile [name]  show or pin the session profile (hypr, i3)
@@ -127,9 +129,45 @@ clear_stale_links() {
     return 0
 }
 
+# Real files - not links - block stow entirely. Every fresh machine has them:
+# .profile and friends come from /etc/skel when the account is created. Moving
+# them aside is safe and reversible; overwriting them silently would not be,
+# and stow --adopt is worse still since it pulls the machine's copy *into* the
+# repo, overwriting what is tracked here.
+handle_conflicts() {
+    local pkg rel target
+    local -a conflicts=()
+
+    for pkg in $(active_packages); do
+        while IFS= read -r rel; do
+            target="$HOME/$rel"
+            [[ -e "$target" && ! -L "$target" ]] && conflicts+=("$rel")
+        done < <(find "$DEV_ENV_HOME/$pkg" -type f \
+            -not -path '*/.git/*' -not -name '.git' -printf '%P\n')
+    done
+
+    ((${#conflicts[@]})) || return 0
+
+    if ((FORCE_LINK == 0)); then
+        warn "these already exist as real files and would block stow:"
+        printf '  ~/%s\n' "${conflicts[@]}" >&2
+        die "inspect them, then re-run: ./dev-env link --force  (moves them to a backup)"
+    fi
+
+    local backup="$HOME/.local/share/dev-env/backup/$(date +%Y%m%d-%H%M%S)"
+    info "backing up ${#conflicts[@]} conflicting file(s) to ${backup/#$HOME/\~}"
+
+    for rel in "${conflicts[@]}"; do
+        mkdir -p "$backup/$(dirname "$rel")"
+        mv "$HOME/$rel" "$backup/$rel"
+        echo "  ~/$rel"
+    done
+}
+
 do_link() {
     ensure_stow
     clear_stale_links
+    handle_conflicts
 
     local pkg
     for pkg in $(active_packages); do
@@ -400,6 +438,7 @@ main() {
             list_runs
             ;;
         link)
+            [[ "${2:-}" == "--force" || "${2:-}" == "-f" ]] && FORCE_LINK=1
             do_link
             ;;
         unlink)
@@ -419,6 +458,7 @@ main() {
             fi
             ;;
         all)
+            [[ "${2:-}" == "--force" || "${2:-}" == "-f" ]] && FORCE_LINK=1
             do_link
             run_all
             info "done"
