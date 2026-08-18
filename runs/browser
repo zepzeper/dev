@@ -84,6 +84,26 @@ case "$OS" in
                 xdg-mime default helium.desktop x-scheme-handler/http x-scheme-handler/https 2>/dev/null || true
 
             echo "installed helium.desktop and set it as the default browser"
+        fi
+
+        # Ubuntu 23.10+ blocks unprivileged user namespaces via AppArmor, and
+        # chromium's sandbox needs them: helium dies with "No usable sandbox!"
+        # before drawing anything. Packaged browsers ship a profile; an
+        # unpacked tarball has none, so install one. --no-sandbox would also
+        # "work" and is not worth the exposure for a browser.
+        if [[ -d /etc/apparmor.d ]] && command -v apparmor_parser >/dev/null; then
+            echo "installing an apparmor profile so the sandbox can start"
+            sudo tee /etc/apparmor.d/helium >/dev/null <<EOF
+abi <abi/4.0>,
+include <tunables/global>
+
+profile helium "$HOME/.local/helium/{,**}" flags=(unconfined) {
+  userns,
+  include if exists <local/helium>
+}
+EOF
+            sudo apparmor_parser -r /etc/apparmor.d/helium 2>/dev/null ||
+                echo "  warning: apparmor_parser failed; helium may not start" >&2
         else
             echo "warning: no helium.desktop in the tarball; xdg-open will not find it" >&2
         fi
