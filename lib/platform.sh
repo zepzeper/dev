@@ -80,6 +80,32 @@ enable_copr() {
     sudo dnf -q -y copr enable "$repo"
 }
 
+# Ubuntu's archives freeze a language's version for the life of the release -
+# noble is stuck on php 8.3 while Fedora 44 ships 8.5 - so matching the two
+# machines means pulling from a PPA.
+enable_ppa() {
+    local ppa="$1"
+
+    [[ "$PKG_MANAGER" == "apt" ]] || {
+        echo "  skip ppa $ppa (not apt)"
+        return 0
+    }
+
+    if grep -rqs "^deb .*${ppa#ppa:}" /etc/apt/sources.list.d/ 2>/dev/null; then
+        echo "  ppa already enabled: $ppa"
+        return 0
+    fi
+
+    command -v add-apt-repository >/dev/null || {
+        apt_update_once
+        sudo apt-get install -y software-properties-common
+    }
+
+    echo "  enabling ppa: $ppa"
+    sudo add-apt-repository -y "$ppa"
+    _APT_UPDATED=0 # the new repo needs indexing
+}
+
 install_packages() {
     local canonical mapped
     local -a resolved=()

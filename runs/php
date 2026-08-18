@@ -1,13 +1,47 @@
 #!/usr/bin/env bash
+# PHP, pinned to the same major on both machines.
+
+set -euo pipefail
 
 source "$(dirname "$0")/../lib/platform.sh"
 
-# php-curl is skipped on Fedora (it lives in php-common) and php-zip maps to
-# php-pecl-zip there - see pkg_name() in lib/platform.sh.
-install_packages \
-    php \
-    php-cli \
-    php-mbstring \
-    php-xml \
-    php-curl \
-    php-zip
+# Fedora 44 ships 8.5 as its default php; keep Ubuntu on the same major rather
+# than letting it sit on whatever the release froze (noble ships 8.3).
+PHP_VERSION="${PHP_VERSION:-8.5}"
+
+case "$OS" in
+    fedora)
+        # php-curl is skipped here (it lives in php-common) and php-zip maps to
+        # php-pecl-zip - see pkg_name() in lib/platform.sh.
+        install_packages \
+            php \
+            php-cli \
+            php-mbstring \
+            php-xml \
+            php-curl \
+            php-zip
+
+        installed="$(rpm -q --qf '%{VERSION}' php 2>/dev/null || echo unknown)"
+        [[ "$installed" == "$PHP_VERSION"* ]] ||
+            echo "note: Fedora shipped php $installed, not $PHP_VERSION"
+        ;;
+
+    ubuntu | debian)
+        enable_ppa "ppa:ondrej/php"
+
+        # Versioned package names: php8.5-cli rather than php-cli, so the major
+        # is pinned instead of tracking whatever the archive defaults to.
+        install_packages \
+            "php$PHP_VERSION" \
+            "php$PHP_VERSION-cli" \
+            "php$PHP_VERSION-mbstring" \
+            "php$PHP_VERSION-xml" \
+            "php$PHP_VERSION-curl" \
+            "php$PHP_VERSION-zip"
+
+        # Several majors can coexist; make the pinned one the default `php`.
+        sudo update-alternatives --set php "/usr/bin/php$PHP_VERSION" 2>/dev/null || true
+        ;;
+esac
+
+php --version | head -1
