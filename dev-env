@@ -422,14 +422,30 @@ run_one() {
     [[ -f "$script" ]] || die "no such installer: $name (try --list)"
 
     info "run: $name"
-    bash "$script"
+    bash "$script" || return 1
 }
 
+# Keep going when one installer fails and report at the end. Aborting on the
+# first failure left the machine silently half-provisioned - a transient
+# github rate-limit in runs/odin was enough to skip rust, tui, vm and zsh,
+# so the login shell was never even changed.
 run_all() {
     local name
+    local -a failed=()
+
     for name in $(list_runs); do
-        run_one "$name"
+        if ! run_one "$name"; then
+            warn "installer failed: $name"
+            failed+=("$name")
+        fi
     done
+
+    if ((${#failed[@]})); then
+        printf '\n\033[1;31m%d installer(s) failed:\033[0m %s\n' \
+            "${#failed[@]}" "${failed[*]}" >&2
+        echo "re-run individually, e.g. ./dev-env ${failed[0]}" >&2
+        return 1
+    fi
 }
 
 main() {
