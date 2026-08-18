@@ -98,7 +98,7 @@ tools the workstation uses so the habits carry across:
 | Key | Tool | What |
 | --- | --- | --- |
 | `$mod+Shift+a` | `wiremix` | audio devices and volume (PipeWire) |
-| `$mod+Shift+n` | `wlctl` | wifi + VPN profiles (NetworkManager) |
+| `$mod+Shift+n` | `wlctl` | wifi, and WireGuard profiles |
 | `$mod+Ctrl+v` | `nmcli` + rofi | VPN up/down (not `$mod+Shift+v`, which splits) |
 | `$mod+b` | `bluetui` | bluetooth |
 
@@ -117,6 +117,14 @@ both the wifi and the OpenVPN profile live in **NetworkManager**, and iwd cannot
 do the 802.1X a work network may ask for. impala's maintainer turned down a
 NetworkManager backend as too complex, so `wlctl` exists to be exactly that.
 `nmtui` was the stopgap before it and is a newt dialog that no theme can reach.
+
+**wlctl does not connect the OpenVPN profile**, and this is by its design rather
+than a fault: its README says OpenVPN "requires external `nmcli` command, not
+handled directly by wlctl". Its VPN pane lists the profile and toggles
+autoconnect, but pressing enter will not bring it up — WireGuard is the type it
+drives natively. The [open request for real VPN
+management](https://github.com/aashish-thapa/wlctl/issues/63) has no maintainer
+response. So the split is: `wlctl` for wifi, `$mod+Ctrl+v` for the VPN.
 
 `wlctl` is young — 0.1.x, GPLv3 — so if it disappoints, `launch-wifi` is a
 two-line revert to `nmtui connect`.

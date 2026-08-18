@@ -44,7 +44,8 @@ install_crate wiremix launch-audio
 # wlctl is impala's UX rebuilt on NetworkManager. impala itself is what Omarchy
 # uses and is the obvious pick, but it drives iwd - no use on a machine whose
 # wifi and OpenVPN profile both live in NetworkManager, and iwd cannot do the
-# 802.1X a work network may want. wlctl covers wifi and VPN profiles both.
+# 802.1X a work network may want. wlctl drives wifi and WireGuard; it defers
+# OpenVPN activation to nmcli, which is what launch-vpn is for.
 install_crate wlctl launch-wifi
 
 echo

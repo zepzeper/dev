@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
-# Launch the network manager TUI (wlctl), which covers wifi and VPN profiles.
+# Launch the network TUI (wlctl): wifi, and WireGuard profiles.
+#
+# Not the OpenVPN one - wlctl punts OpenVPN activation to nmcli by its own
+# design ("requires external nmcli command"), so its VPN pane lists the work
+# profile but will not bring it up. launch-vpn on $mod+Ctrl+v is what connects
+# it. Worth knowing before spending an evening debugging a toggle that was
+# never wired.
 #
 # This is the gap the README recorded for a long time. Omarchy uses impala here
 # and impala is the nicer-looking tool, but it drives iwd - no use on a machine
