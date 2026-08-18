@@ -8,6 +8,16 @@ set -euo pipefail
 
 source "$(dirname "$0")/../lib/platform.sh"
 
+# Provisioning a hypervisor inside a guest is pointless: dev-vm exists to test
+# this repo in a VM, and `dev-env all` would otherwise spend minutes installing
+# libvirt there. Nested virt is a real use case though, so it is overridable.
+if [[ "${VM_ALLOW_NESTED:-0}" != "1" ]] &&
+    systemd-detect-virt --vm --quiet 2>/dev/null; then
+    echo "running inside a $(systemd-detect-virt) guest - skipping libvirt"
+    echo "set VM_ALLOW_NESTED=1 if you actually want nested virtualisation"
+    exit 0
+fi
+
 [[ -e /dev/kvm ]] || {
     echo "No /dev/kvm - enable virtualisation in firmware first." >&2
     exit 1
