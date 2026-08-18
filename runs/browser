@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Helium - the browser the hypr bindings and launch-webapp expect.
+
+set -euo pipefail
+
+source "$(dirname "$0")/../lib/platform.sh"
+
+if command -v helium >/dev/null; then
+    echo "helium already installed: $(command -v helium)"
+    exit 0
+fi
+
+case "$OS" in
+    fedora)
+        # Packaged as helium-bin; see pkg_name() in lib/platform.sh.
+        enable_copr "imput/helium"
+        install_packages helium
+        ;;
+
+    ubuntu | debian)
+        # Upstream ships an AppImage and a tarball, no .deb, so this lands in
+        # ~/.local like odin and the nvim nightly rather than via apt.
+        case "$(uname -m)" in
+            x86_64) ARCH="x86_64" ;;
+            aarch64 | arm64) ARCH="arm64" ;;
+            *)
+                echo "No helium build for $(uname -m)" >&2
+                exit 1
+                ;;
+        esac
+
+        URL="$(curl -fsSL https://api.github.com/repos/imputnet/helium-linux/releases/latest |
+            grep '"browser_download_url":' |
+            grep "${ARCH}_linux\.tar\.xz\"" |
+            head -n1 |
+            sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/')"
+
+        [[ -n "$URL" ]] || {
+            echo "Could not resolve a helium tarball for $ARCH" >&2
+            exit 1
+        }
+
+        TMP_DIR="$(mktemp -d)"
+        trap 'rm -rf "$TMP_DIR"' EXIT
+
+        echo "downloading $(basename "$URL")"
+        curl --fail --location --progress-bar "$URL" --output "$TMP_DIR/helium.tar.xz"
+        tar -xJf "$TMP_DIR/helium.tar.xz" -C "$TMP_DIR"
+
+        SRC="$(find "$TMP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n1)"
+        [[ -n "$SRC" ]] || {
+            echo "unexpected archive layout" >&2
+            exit 1
+        }
+
+        rm -rf "$HOME/.local/helium"
+        mkdir -p "$HOME/.local/bin"
+        mv "$SRC" "$HOME/.local/helium"
+        ln -sfn "$HOME/.local/helium/chrome" "$HOME/.local/bin/helium" 2>/dev/null ||
+            ln -sfn "$HOME/.local/helium/helium" "$HOME/.local/bin/helium"
+        ;;
+esac
+
+command -v helium >/dev/null && echo "installed: $(command -v helium)"
+true

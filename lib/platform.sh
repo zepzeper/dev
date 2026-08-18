@@ -48,6 +48,7 @@ pkg_name() {
         dnf:php-zip) echo "php-pecl-zip" ;;
         dnf:php-curl) echo "" ;;          # ships inside php-common
         dnf:pkg-config) echo "pkgconf-pkg-config" ;;
+        dnf:helium) echo "helium-bin" ;;
 
         # Ubuntu. Verified on noble (24.04) in a dev-vm guest.
         apt:go) echo "golang-go" ;;
