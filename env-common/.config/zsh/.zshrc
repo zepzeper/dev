@@ -100,3 +100,6 @@ source $ZSH/oh-my-zsh.sh
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 source "$ZDOTDIR/.zsh_profile"
+
+# opencode
+export PATH=/home/wouter/.opencode/bin:$PATH

@@ -6,10 +6,11 @@ font-family = "Iosevka Term"
 font-style = Regular
 font-size = 12
 
+window-padding-y = 14, 0
+
 theme = Rose Pine Moon
 background = 161521 
 confirm-close-surface=false
-#theme = Rose Pine Moon
 #theme = Nord Wave
 #theme = Gruvbox 
 background-opacity = 0.95
@@ -23,4 +24,3 @@ window-decoration = none
 
 # Disable Ctrl+Enter fullscreen keybind
 keybind = ctrl+enter=unbind
-
