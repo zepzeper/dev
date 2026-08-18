@@ -8,3 +8,10 @@ die() {
     printf '\033[1;31merror:\033[0m %s\n' "$*" >&2
     exit 1
 }
+
+# Guard an entry point on a command being present.
+#   need cargo rust   ->  "cargo is required - run: ./dev-env rust"
+need() {
+    command -v "$1" >/dev/null ||
+        die "$1 is required${2:+ - run: ./dev-env $2}"
+}

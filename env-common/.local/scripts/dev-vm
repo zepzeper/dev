@@ -53,8 +53,6 @@ image_url() {
     esac
 }
 
-need() { command -v "$1" >/dev/null || die "$1 missing - run: dev-env vm"; }
-
 # Fail with something actionable rather than letting virt-install get half way
 # and leave a broken domain behind.
 preflight() {
@@ -92,8 +90,8 @@ cmd_create() {
     local url
     url="$(image_url "$distro")" || die "unknown distro: $distro (ubuntu, jammy, fedora)"
 
-    need virt-install
-    need cloud-localds
+    need virt-install vm
+    need cloud-localds vm
     preflight
     [[ -f "$SSH_KEY.pub" ]] || die "no $SSH_KEY.pub - run: dev-secrets unlock"
 
@@ -189,7 +187,7 @@ cmd_stop() {
 
 cmd_display() {
     local name="${1:?usage: dev-vm display <name>}"
-    need virt-viewer
+    need virt-viewer vm
     virsh domstate "$name" | grep -q running || cmd_start "$name"
     # Detached, so the terminal stays usable while the window is open.
     setsid virt-viewer --attach "$name" >/dev/null 2>&1 &

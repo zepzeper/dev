@@ -5,13 +5,7 @@
 set -euo pipefail
 
 source "$(dirname "$0")/../lib/platform.sh"
-
-need() {
-    command -v "$1" >/dev/null || {
-        echo "$1 is required for this installer - run: ./dev-env $2" >&2
-        exit 1
-    }
-}
+source "$(dirname "$0")/../lib/ui.sh"
 
 # rustup installs here; the invoking shell may well not have it on PATH yet.
 [[ -f "$HOME/.cargo/env" ]] && . "$HOME/.cargo/env"
