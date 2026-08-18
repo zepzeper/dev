@@ -31,7 +31,6 @@ hl.bind("ALT + S", hl.dsp.exec_cmd("launch-workspace-toggle"),  { description = 
 
 -- Captures
 hl.bind("SHIFT + CTRL + P", hl.dsp.exec_cmd("launch-screenshot smart copy"), { description = "Screenshot to clipboard" })
-hl.bind("SHIFT + CTRL + R", hl.dsp.exec_cmd("launch-menu screenrecord"),     { description = "Record to Videos" })
 
 -- File sharing
 hl.bind("SHIFT + CTRL + S", hl.dsp.exec_cmd("launch-menu localsend"), { description = "Share" })

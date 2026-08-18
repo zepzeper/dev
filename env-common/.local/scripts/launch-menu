@@ -15,28 +15,14 @@ show_menu() {
     echo -e "$options" | rofi -dmenu -p "$prompt"
 }
 
-show_screenrecord_menu() {
-    case $(show_menu "Screenrecord" "With desktop audio\nWith microphone audio\nWith webcam") in
-        *desktop*) 
-            notify-send "Starting recording" "Desktop audio only"
-            launch-screenrecorder --with-desktop-audio
-            ;;
-        *microphone*) 
-            notify-send "Starting recording" "Desktop + microphone audio"
-            launch-screenrecorder --with-desktop-audio --with-microphone-audio
-            ;;
-        *webcam*) 
-            notify-send "Starting recording" "Desktop + microphone + webcam"
-            launch-screenrecorder --with-desktop-audio --with-microphone-audio --with-webcam
-            ;;
-        *) 
-            exit 0
-            ;;
-    esac
-}
-
 show_localsend_menu() {
-    localsend_app
+    # Installed as a flatpak by runs/localsend; the app id is also what the
+    # hypr window rule matches on. `localsend_app` was never a real command.
+    if command -v localsend >/dev/null; then
+        localsend
+    else
+        flatpak run org.localsend.localsend_app
+    fi
 }
 
 show_apps_menu() {
@@ -59,9 +45,6 @@ show_apps_menu() {
 }
 
 case "${1,,}" in
-    screenrecord)
-        show_screenrecord_menu
-        ;;
     localsend)
         show_localsend_menu
         ;;
@@ -72,7 +55,6 @@ case "${1,,}" in
         echo "Usage: launch-menu <menu_name>"
         echo ""
         echo "Available menus:"
-        echo "  screenrecord - Screen recording options"
         echo "  localsend    - LocalSend share options"
         echo "  apps         - Launch applications"
         echo ""

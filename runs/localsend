@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# LocalSend, via flatpak on both distros.
+#
+# Neither Fedora nor Ubuntu packages it, and upstream's releases are .apk/.deb
+# only. The flatpak app id - org.localsend.localsend_app - is also what the
+# hypr window rule in apps/localsend.lua matches on.
+
+set -euo pipefail
+
+source "$(dirname "$0")/../lib/platform.sh"
+
+APP_ID="org.localsend.localsend_app"
+
+if command -v localsend >/dev/null; then
+    echo "localsend already installed: $(command -v localsend)"
+    exit 0
+fi
+
+if flatpak info "$APP_ID" >/dev/null 2>&1; then
+    echo "$APP_ID already installed"
+    exit 0
+fi
+
+command -v flatpak >/dev/null || install_packages flatpak
+hash -r
+
+# Fedora ships a filtered flathub remote; Ubuntu usually ships none at all.
+if ! flatpak remotes --columns=name 2>/dev/null | grep -qx flathub; then
+    echo "adding the flathub remote"
+    sudo flatpak remote-add --if-not-exists flathub \
+        https://dl.flathub.org/repo/flathub.flatpakrepo
+fi
+
+echo "installing $APP_ID"
+sudo flatpak install -y --noninteractive flathub "$APP_ID"
+
+flatpak info "$APP_ID" 2>/dev/null | head -2
