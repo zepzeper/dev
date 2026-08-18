@@ -26,6 +26,8 @@ case "$OS" in
         echo "  git clone https://github.com/ghostty-org/ghostty ~/personal/ghostty"
         echo "  cd ~/personal/ghostty && zig build -Doptimize=ReleaseFast"
         echo
-        echo "~/personal/ghostty/zig-out/bin is already on PATH via .zsh_profile."
+        echo "Note: that path is only added by .zsh_profile, so it is not on"
+        echo "PATH until runs/zsh has changed your login shell. The i3 profile"
+        echo "uses i3-sensible-terminal, so a session works without ghostty."
         ;;
 esac

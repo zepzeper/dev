@@ -36,8 +36,11 @@ for_window [class="^.*"] client.focused #77dd77 #285577 #ffffff #2e9ef4   #28557
 floating_modifier $mod
 
 # start a terminal
-# bindsym $mod+Return exec i3-sensible-terminal
-bindsym $mod+Return exec "$HOME/.local/bin/ghostty"
+# i3-sensible-terminal honours $TERMINAL and otherwise walks the installed
+# terminals. Binding straight to ghostty left this profile with no way to open
+# a terminal at all: ghostty has no Ubuntu package, and this profile only ever
+# runs on Ubuntu.
+bindsym $mod+Return exec i3-sensible-terminal
 
 # kill focused window
 # bindsym $mod+space exec "/home/theprimeagen/dotfiles/awesome-streamerrc/ThePrimeagen/tmux2"
