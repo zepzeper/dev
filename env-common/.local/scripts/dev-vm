@@ -48,7 +48,18 @@ image_url() {
     case "$1" in
         ubuntu | noble) echo "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img" ;;
         jammy) echo "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img" ;;
-        fedora) echo "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Cloud/x86_64/images/Fedora-Cloud-Base-Generic-44-1.5.x86_64.qcow2" ;;
+        fedora)
+            # The build suffix changes with every respin (44-1.5 became 44-1.7
+            # and the hardcoded url started 404ing), so resolve it from the
+            # directory listing instead.
+            local base img
+            base="https://download.fedoraproject.org/pub/fedora/linux/releases/${FEDORA_VERSION:-44}/Cloud/x86_64/images/"
+            img="$(curl -fsSL "$base" |
+                grep -oE "Fedora-Cloud-Base-Generic-[0-9]+-[0-9.]+\.x86_64\.qcow2" |
+                sort -u | tail -1)"
+            [[ -n "$img" ]] || return 1
+            echo "$base$img"
+            ;;
         *) return 1 ;;
     esac
 }
