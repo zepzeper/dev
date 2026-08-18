@@ -56,8 +56,37 @@ case "$OS" in
         rm -rf "$HOME/.local/helium"
         mkdir -p "$HOME/.local/bin"
         mv "$SRC" "$HOME/.local/helium"
-        ln -sfn "$HOME/.local/helium/chrome" "$HOME/.local/bin/helium" 2>/dev/null ||
-            ln -sfn "$HOME/.local/helium/helium" "$HOME/.local/bin/helium"
+
+        # Link the launcher, not the raw `chrome` binary next to it: the
+        # wrapper sets up the profile dir and flags Chromium forks expect.
+        for entry in helium-wrapper helium chrome; do
+            [[ -x "$HOME/.local/helium/$entry" ]] || continue
+            ln -sfn "$HOME/.local/helium/$entry" "$HOME/.local/bin/helium"
+            break
+        done
+
+        # Without a .desktop entry xdg-open has no browser to hand a URL to, so
+        # every webapp binding silently does nothing - xdg-settings reports an
+        # empty default. The shipped file points Exec at an install prefix we
+        # are not using, so rewrite it.
+        DESKTOP_SRC="$HOME/.local/helium/helium.desktop"
+        DESKTOP_DIR="$HOME/.local/share/applications"
+
+        if [[ -f "$DESKTOP_SRC" ]]; then
+            mkdir -p "$DESKTOP_DIR"
+            sed -E "s|^Exec=[^ ]*|Exec=$HOME/.local/bin/helium|; s|^Icon=.*|Icon=$HOME/.local/helium/product_logo_256.png|" \
+                "$DESKTOP_SRC" >"$DESKTOP_DIR/helium.desktop"
+
+            command -v update-desktop-database >/dev/null &&
+                update-desktop-database "$DESKTOP_DIR" 2>/dev/null
+
+            xdg-settings set default-web-browser helium.desktop 2>/dev/null ||
+                xdg-mime default helium.desktop x-scheme-handler/http x-scheme-handler/https 2>/dev/null || true
+
+            echo "installed helium.desktop and set it as the default browser"
+        else
+            echo "warning: no helium.desktop in the tarball; xdg-open will not find it" >&2
+        fi
         ;;
 esac
 
