@@ -41,6 +41,29 @@ case "$OS" in
         ;;
 esac
 
+# The config lives in a submodule. A plain `git clone` - the https bootstrap,
+# and dev-vm's cloud-init - leaves it empty, and stow then links nothing, so
+# nvim starts with no configuration at all.
+#
+# The submodule URL is ssh so it can be pushed to, but a machine that has not
+# run `dev-secrets unlock` yet has no key. Fall back to https for a read-only
+# checkout; `git remote set-url` inside the submodule restores push access.
+DEV_ENV_HOME="$(cd "$(dirname "$0")/.." && pwd)"
+NVIM_SM="env-common/.config/nvim"
+
+if [[ -z "$(ls -A "$DEV_ENV_HOME/$NVIM_SM" 2>/dev/null)" ]]; then
+    echo "nvim config submodule is empty; checking it out"
+
+    if ! git -C "$DEV_ENV_HOME" submodule update --init "$NVIM_SM" 2>/dev/null; then
+        echo "  ssh failed (no key yet?) - retrying over https"
+        git -C "$DEV_ENV_HOME" -c "submodule.$NVIM_SM.url=https://github.com/zepzeper/nvim.git" \
+            submodule update --init "$NVIM_SM"
+    fi
+
+    echo "  re-linking so stow picks up the new files"
+    "$DEV_ENV_HOME/dev-env" link >/dev/null
+fi
+
 # Report via the absolute path and never let this line set the exit code:
 # ~/.local/bin is not on PATH yet during a fresh bootstrap, so `command -v
 # nvim` failing here made a successful install report failure.
