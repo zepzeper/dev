@@ -106,7 +106,7 @@ cmd_create() {
     info "creating $DISK_GB GB overlay disk"
     qemu-img create -f qcow2 -F qcow2 -b "$base" "$disk" "${DISK_GB}G" >/dev/null
 
-    # cloud-init: no password, key-only, and the repo cloned ready to bootstrap.
+    # cloud-init: key for ssh, password for the console, repo cloned ready to go.
     local seed="$DISK_DIR/$name-seed.iso"
     local tmp
     tmp="$(mktemp -d)"
