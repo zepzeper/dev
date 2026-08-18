@@ -113,6 +113,37 @@ check_lid() {
     return 0
 }
 
+# env-hypr's launch-tui hands the terminal choice to xdg-terminal-exec so that
+# --app-id lands on whichever flag that terminal uses. Without a
+# xdg-terminals.list the choice comes from scanning desktop entries, and any
+# newly installed terminal can quietly take it over - the keybindings still
+# work, they just stop opening ghostty and stop picking up its config.
+check_terminal() {
+    [[ "$(detect_profile)" == "hypr" ]] || return 0
+
+    local wanted=com.mitchellh.ghostty.desktop got
+
+    if ! command -v xdg-terminal-exec >/dev/null; then
+        bad "xdg-terminal-exec not installed - launch-tui cannot open anything"
+        hint "./dev-env hyprland"
+        return 0
+    fi
+
+    got="$(xdg-terminal-exec --print-id 2>/dev/null)"
+
+    if [[ "$got" == "$wanted" ]]; then
+        ok "terminal: ghostty"
+    elif [[ -z "$got" ]]; then
+        bad "xdg-terminal-exec finds no terminal at all"
+        hint "install ghostty, then re-run"
+    else
+        bad "launch-tui would open $got, not ghostty"
+        hint "if ~/.config/xdg-terminals.list is linked, ghostty is not installed: ./dev-env ghostty"
+    fi
+
+    return 0
+}
+
 check_stow() {
     if command -v stow >/dev/null; then
         ok "stow present ($(stow --version | head -1))"
@@ -274,6 +305,7 @@ do_doctor() {
     info "tooling"
     check_stow
     check_lid
+    check_terminal
     check_mason
     info "PATH"
     check_path

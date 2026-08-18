@@ -13,7 +13,20 @@ LAUNCH_COMMAND="${2:-"uwsm-app -- $WINDOW_PATTERN"}"
 WINDOW_ADDRESS=$(hyprctl clients -j | jq -r --arg p "$WINDOW_PATTERN" '.[]|select((.class|test("\\b" + $p + "\\b";"i")) or (.title|test("\\b" + $p + "\\b";"i")))|.address' | head -n1)
 
 if [[ -n $WINDOW_ADDRESS ]]; then
-    hyprctl dispatch focuswindow "address:$WINDOW_ADDRESS"
+    # Hyprland 0.56 configures in Lua, and `hyprctl dispatch` now evaluates its
+    # arguments as Lua too - the old `focuswindow address:0x...` string dies on
+    # a parse error, which hyprctl reports on stderr and nothing here reads. So
+    # the focus half quietly stopped working: pressing the key on an already
+    # open window did nothing at all, rather than launching a duplicate.
+    #
+    # `hyprctl eval` runs a statement instead of an expression, which is what
+    # the lookup needs: dispatchers are descriptors that hl.dispatch has to be
+    # handed, and hl.dsp.focus wants the window object rather than an address,
+    # so the address found above has to be resolved through hl.get_window().
+    # That selector wants the `address:` prefix - a bare 0x... returns nil.
+    exec hyprctl eval "
+        local w = hl.get_window('address:$WINDOW_ADDRESS')
+        if w then hl.dispatch(hl.dsp.focus({ window = w })) end" >/dev/null
 else
     eval exec setsid $LAUNCH_COMMAND
 fi

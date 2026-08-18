@@ -1,24 +1,34 @@
 #!/usr/bin/env bash
-# toggle-workspace-layout - Toggle between scrolling and default layout for current workspace
+# Toggle the current workspace between the scrolling layout and the configured
+# default one.
+#
+# `hyprctl keyword` is gone in Hyprland 0.56: the config is Lua, and keyword
+# answers "keyword can't work with non-legacy parsers. Use eval." The rule it
+# used to write is `hl.workspace_rule()`, which takes the same fields as a
+# table. Each call adds a rule rather than replacing the previous one, but the
+# most recent match wins, so toggling stays correct.
+#
+# The old version also recorded which workspaces were scrolling in
+# /tmp/hypr/workspace-layouts.conf, because keyword could write config but
+# never read it back. Nothing creates /tmp/hypr, so that file could never be
+# written: `grep -q` on a missing file is false every time, and the toggle only
+# ever went one way. `hyprctl activeworkspace -j` reports the live
+# `tiledLayout`, so there is nothing left to remember and no file to go stale
+# across a Hyprland restart.
 
-# Get current workspace
-current_workspace=$(hyprctl activeworkspace -j | jq -r '.id')
+set -euo pipefail
 
-# State file to track layout per workspace
-STATE_FILE="/tmp/hypr/workspace-layouts.conf"
+read -r id current < <(hyprctl activeworkspace -j | jq -r '"\(.id) \(.tiledLayout)"')
 
-# Create state file if it doesn't exist
-[ ! -f "$STATE_FILE" ] && touch "$STATE_FILE"
-
-# Check current layout for this workspace
-if grep -q "^workspace = $current_workspace, layout:scrolling" "$STATE_FILE"; then
-    # Currently scrolling, switch to default
-    sed -i "/^workspace = $current_workspace, layout:scrolling/d" "$STATE_FILE"
-    hyprctl keyword workspace "$current_workspace, layout:default"
-    notify-send "Workspace $current_workspace" "Layout: Default"
+# The off state is whatever general:layout says, not the word "default" - a
+# workspace rule wants a real layout name and silently keeps the current one
+# for anything it does not recognise.
+if [[ $current == "scrolling" ]]; then
+    want="$(hyprctl getoption general:layout -j | jq -r '.str')"
 else
-    # Currently default, switch to scrolling
-    echo "workspace = $current_workspace, layout:scrolling" >>"$STATE_FILE"
-    hyprctl keyword workspace "$current_workspace, layout:scrolling"
-    notify-send "Workspace $current_workspace" "Layout: Scrolling"
+    want="scrolling"
 fi
+
+hyprctl eval "hl.workspace_rule({ workspace = \"$id\", layout = \"$want\" })" >/dev/null
+
+notify-send "Workspace $id" "Layout: $want"

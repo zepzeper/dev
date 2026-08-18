@@ -262,6 +262,69 @@ config had been exec'ing `nm-applet` since it was written while nothing
 installed it, so the tray icon never appeared — and without its secret agent a
 VPN connect fails with nothing on screen to say why.
 
+### Which terminal a TUI opens in (hypr)
+
+env-hypr's `launch-tui` never names a terminal. It calls `xdg-terminal-exec`,
+which reads the chosen terminal's desktop entry to learn *that terminal's*
+spelling of the flags — ghostty declares `X-TerminalArgAppId=--class=`, kitty
+declares `--class` — so one `--app-id=zepzeper.<tool>` keeps working whatever
+the terminal is.
+
+The choice comes from `~/.config/xdg-terminals.list`, and with no such file
+`xdg-terminal-exec` falls back to scanning desktop entries for
+`Categories=TerminalEmulator` and taking the first hit. On a machine that also
+has kitty installed kitty won that scan, so `$mod+Shift+t` opened btop in kitty
+— working keybinding, wrong terminal, and none of env-common's ghostty config
+applying. `env-common/.config/xdg-terminals.list` pins the order:
+
+```
+com.mitchellh.ghostty.desktop
+kitty.desktop
+```
+
+Confirm with `xdg-terminal-exec --print-id`, which resolves the choice without
+launching anything. `doctor` runs that same check on the hypr profile, because
+this is drift a *newly installed* package causes — nothing in the repo changes,
+and the keybinding keeps working, so nothing else would report it.
+
+### hyprctl after the Lua config (hypr)
+
+Hyprland 0.56 configures in Lua, and `hyprctl` followed: `dispatch` now parses
+its arguments as Lua rather than as the old `focuswindow address:0x...`
+strings, and `keyword` is gone entirely (`keyword can't work with non-legacy
+parsers. Use eval.`). Both failures land on stderr, and none of these scripts
+read stderr, so three bindings had quietly stopped doing anything:
+
+| Script | Binding | Was |
+| --- | --- | --- |
+| `launch-or-focus` | `SUPER+Shift+m`, and every `launch-or-focus-tui` | `dispatch focuswindow address:…` |
+| `launch-window-pop` | `SUPER+o` | `dispatch togglefloating/resizeactive/moveactive/centerwindow/pin/alterzorder/tagwindow` |
+| `launch-workspace-toggle` | `ALT+s` | `keyword workspace "N, layout:…"` |
+
+All three now go through `hyprctl eval`, which takes statements rather than a
+single expression. The shape that matters: `hl.dsp.*` builds a *descriptor*,
+and `hl.dispatch()` is what runs it — `hyprctl eval 'hl.dsp.window.close()'`
+type-checks, returns `ok`, and does nothing at all. Targeting is by window
+object, not address, so the address goes through
+`hl.get_window("address:0x…")` first; the `address:` prefix is required, a bare
+`0x…` returns nil. `hyprctl clients -j` and friends are unaffected, so the jq
+lookups stayed.
+
+`/usr/share/hypr/stubs/hl.meta.lua` is the generated type stub for the whole
+API and is the only real reference for what exists — it types dispatcher
+arguments as `fun(...)`, though, so the argument *names*
+(`{ window = w, tag = "+pop" }`) came from trying them against a scratch
+window.
+
+Two things fell out of the port. `launch-window-pop` validates its geometry
+arguments now, because they are interpolated into generated Lua rather than
+into a dispatcher string. And `launch-workspace-toggle` lost its state file:
+it recorded which workspaces were scrolling in `/tmp/hypr/workspace-layouts.conf`
+because `keyword` could write config but never read it back — except nothing
+creates `/tmp/hypr`, so the file was never written, `grep -q` on it was false
+every time, and the toggle only ever went one way. `hyprctl activeworkspace -j`
+reports the live `tiledLayout`, so there is nothing left to remember.
+
 ## Bootstrap a machine
 
 Only `git` has to pre-exist. `stow` is the one tool the linking step itself
@@ -326,6 +389,8 @@ come from the new code rather than the version that started.
   not give a working editor; nvim has to start once
 - `~/.local/scripts` and `~/.local/bin` on `PATH` — catches the case where the
   config is right on disk but your running shell predates it (`exec zsh`)
+- on hypr, `xdg-terminal-exec` still resolves to ghostty — installing another
+  terminal can silently take that over
 
 ## Submodules
 

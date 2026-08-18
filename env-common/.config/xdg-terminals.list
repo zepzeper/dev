@@ -1,0 +1,14 @@
+# Which terminal xdg-terminal-exec opens.
+#
+# env-hypr's launch-tui does not name a terminal: it calls xdg-terminal-exec so
+# that --app-id is translated into whatever flag the chosen terminal uses. With
+# no list here that choice falls back to scanning the desktop entries for
+# Categories=TerminalEmulator, and on a machine that also has kitty installed
+# kitty wins - so SUPER+SHIFT+T opened btop in kitty, not ghostty, with none of
+# the ghostty config in env-common applying to it.
+#
+# First installed entry wins; kitty stays as the fallback for a machine without
+# ghostty. Both declare X-TerminalArgAppId, so the zepzeper.* window rules in
+# env-hypr keep matching either way.
+com.mitchellh.ghostty.desktop
+kitty.desktop

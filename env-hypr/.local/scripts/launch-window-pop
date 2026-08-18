@@ -1,31 +1,54 @@
 #!/usr/bin/env bash
+# Pop the active window out of the tiling: float it, size it, place or centre
+# it, pin it above everything and tag it `pop`. Pressing the same key again on
+# a popped window undoes all of it.
+#
+# Hyprland 0.56 parses `hyprctl dispatch` arguments as Lua, so the old
+# `dispatch togglefloating address:0x...` strings die on a parse error that
+# only reaches stderr - the binding did nothing at all, silently. `hyprctl
+# eval` takes statements instead, which suits this better anyway: the whole
+# sequence runs inside one call, so it is atomic the way `hyprctl --batch` was.
+#
+# hl.get_active_window() also replaces the activewindow-plus-jq lookup, and
+# hl.dsp.window.bring_to_top() is the named form of `alterzorder top`.
+
+set -euo pipefail
 
 width=${1:-1300}
 height=${2:-900}
 x=${3:-}
 y=${4:-}
 
-active=$(hyprctl activewindow -j)
-pinned=$(echo "$active" | jq ".pinned")
-addr=$(echo "$active" | jq -r ".address")
+# These end up inside generated Lua, so they have to be numbers and nothing
+# else - the old string dispatchers could get away without checking.
+for n in "$width" "$height" ${x:+"$x"} ${y:+"$y"}; do
+    [[ $n =~ ^-?[0-9]+$ ]] || {
+        echo "launch-window-pop: '$n' is not an integer" >&2
+        exit 1
+    }
+done
 
-if [[ $pinned == "true" ]]; then
-    hyprctl -q --batch \
-        "dispatch pin address:$addr;" \
-        "dispatch togglefloating address:$addr;" \
-        "dispatch tagwindow -pop address:$addr;"
-elif [[ -n $addr ]]; then
-    hyprctl dispatch togglefloating address:$addr
-    hyprctl dispatch resizeactive exact $width $height address:$addr
-
-    if [[ -n $x && -n $y ]]; then
-        hyprctl dispatch moveactive $x $y address:$addr
-    else
-        hyprctl dispatch centerwindow address:$addr
-    fi
-
-    hyprctl -q --batch \
-        "dispatch pin address:$addr;" \
-        "dispatch alterzorder top address:$addr;" \
-        "dispatch tagwindow +pop address:$addr;"
+# `moveactive x y` was relative, so this stays relative to keep the same
+# meaning for callers that pass coordinates.
+if [[ -n $x && -n $y ]]; then
+    place="hl.dispatch(hl.dsp.window.move({ window = w, x = $x, y = $y, relative = true }))"
+else
+    place="hl.dispatch(hl.dsp.window.center({ window = w }))"
 fi
+
+exec hyprctl eval "
+    local w = hl.get_active_window()
+    if w then
+        if w.pinned then
+            hl.dispatch(hl.dsp.window.pin({ window = w }))
+            hl.dispatch(hl.dsp.window.float({ window = w }))
+            hl.dispatch(hl.dsp.window.tag({ window = w, tag = '-pop' }))
+        else
+            hl.dispatch(hl.dsp.window.float({ window = w }))
+            hl.dispatch(hl.dsp.window.resize({ window = w, x = $width, y = $height }))
+            $place
+            hl.dispatch(hl.dsp.window.pin({ window = w }))
+            hl.dispatch(hl.dsp.window.bring_to_top({ window = w }))
+            hl.dispatch(hl.dsp.window.tag({ window = w, tag = '+pop' }))
+        end
+    end" >/dev/null
