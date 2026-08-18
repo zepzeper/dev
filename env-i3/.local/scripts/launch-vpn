@@ -95,12 +95,14 @@ else
         exit 0
     fi
 
-    # A missing secret is worth its own message, because it is the normal state
-    # in this session rather than a fault: under GNOME, PAM unlocks
-    # gnome-keyring at login so an agent-owned password can be handed over, but
-    # a bare startx i3 session has no unlocked keyring and no tty to prompt on.
-    # The durable fix is to make the password system-owned, which needs no agent
-    # at all - the same way the wifi PSKs already work here.
+    # A missing secret is worth its own message, and has two quite different
+    # causes. Either the VPN really does want a password and there is no agent
+    # to supply it - under GNOME, PAM unlocks gnome-keyring at login, while a
+    # bare startx i3 session has no unlocked keyring and no tty to prompt on -
+    # or the connection is a certificate-only one wrongly typed as password/
+    # password-tls, in which case it is asking for a credential that was never
+    # issued and no amount of storing will help. Name both, because the second
+    # reads exactly like the first.
     # Any activation failure that mentions a secret is this case; NetworkManager
     # words it several ways ("not given in passwd-file", "secrets were
     # required", "no valid VPN secrets") depending on which end gave up.
@@ -110,9 +112,16 @@ else
         # --ask rather than setting vpn.secrets directly: it keeps the password
         # out of the shell history and out of ps, and NetworkManager stores what
         # it was handed once the flag says system-owned.
-        echo "no stored secret for '$target'. Store it once, in a terminal:" >&2
+        echo "no stored secret for '$target'." >&2
+        echo >&2
+        echo "If it needs a password, store it once, in a terminal:" >&2
         echo "  nmcli connection modify '$target' +vpn.data password-flags=0" >&2
         echo "  nmcli --ask connection up id '$target'" >&2
+        echo >&2
+        echo "If it is certificate-only (ca/cert/key, no password ever issued)," >&2
+        echo "it is typed wrong and is asking for a credential that does not exist:" >&2
+        echo "  nmcli connection modify '$target' +vpn.data connection-type=tls" >&2
+        echo "  nmcli connection modify '$target' -vpn.data username" >&2
         exit 1
     fi
 

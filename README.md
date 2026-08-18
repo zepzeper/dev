@@ -151,24 +151,50 @@ once per machine, either from an `.ovpn` file:
 nmcli connection import type openvpn file /path/to/profile.ovpn
 ```
 
-or, for a certificate-based server where all you have is a keypair, by pointing
-a new connection at the files. Certs alone are never enough: the **CA
-certificate** and the **server address** have to come from whoever runs the VPN,
-since nothing in a client `.crt`/`.key` pair says who to trust or where to dial.
+or, for a certificate-only server, by pointing a new connection at the files.
+The usual handout is four of them, and each maps to one `vpn.data` key:
+
+| File | Key | |
+| --- | --- | --- |
+| `ca.crt` | `ca` | the CA to trust |
+| `user.crt` | `cert` | client certificate |
+| `user.key` | `key` | client private key |
+| `ta.key` | `ta` **or** `tls-crypt` | see below |
 
 ```sh
 mkdir -p ~/.cert/nm-openvpn && chmod 700 ~/.cert/nm-openvpn
-cp ca.crt client.crt client.key ~/.cert/nm-openvpn/
-chmod 600 ~/.cert/nm-openvpn/client.key
+cp ca.crt user.crt user.key ta.key ~/.cert/nm-openvpn/
+chmod 600 ~/.cert/nm-openvpn/user.key ~/.cert/nm-openvpn/ta.key
 
 nmcli connection add type vpn vpn-type openvpn con-name work-vpn ifname '*'
 nmcli connection modify work-vpn vpn.data \
-  'connection-type=password-tls, remote=vpn.example.com, port=1194, ca=/home/zepzeper/.cert/nm-openvpn/ca.crt, cert=/home/zepzeper/.cert/nm-openvpn/client.crt, key=/home/zepzeper/.cert/nm-openvpn/client.key'
+  'connection-type=tls, remote=vpn.example.com, port=1194, ca=/home/zepzeper/.cert/nm-openvpn/ca.crt, cert=/home/zepzeper/.cert/nm-openvpn/user.crt, key=/home/zepzeper/.cert/nm-openvpn/user.key, ta=/home/zepzeper/.cert/nm-openvpn/ta.key, ta-dir=1'
 ```
 
-Paths in `vpn.data` must be absolute — `~` is not expanded.
+Paths in `vpn.data` must be absolute — `~` is not expanded. Modifying an
+existing connection is safer one key at a time (`+vpn.data ca=...`), since
+passing `vpn.data` whole replaces the dict and drops the `remote` with it.
+
+`connection-type` is the setting to get right, and the failure is confusing when
+it is wrong. `tls` is certificates only — no username, no password, nothing to
+store. `password` and `password-tls` additionally demand an `auth-user-pass`
+credential, and a connection wrongly set to either will ask for a
+`vpn.secrets.password` that was never issued. If the handout was four files and
+no password, the type is `tls`, and any leftover `username` should be cleared
+with `-vpn.data username`.
+
+`ta.key` is the other trap: tls-auth and tls-crypt keys are byte-identical on
+disk (both `BEGIN OpenVPN Static key V1`), so only the server config says which
+is in use. `tls-auth ta.key 0` there means `ta=` plus `ta-dir=1` here;
+`tls-crypt ta.key` means `tls-crypt=` and no direction. Guessing wrong shows up
+in `journalctl -u NetworkManager -f` as a TLS handshake or decrypt error rather
+than anything about the key.
 
 #### The password has to be system-owned
+
+Only relevant when `connection-type` is `password` or `password-tls`. A
+certificate-only `tls` connection has no password at all, and a request for one
+means the type is wrong rather than the secret missing — see above.
 
 This is the one thing that differs from GNOME, and it is worth understanding
 rather than working around. A VPN password can be stored three ways, recorded as
