@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Versioned hook. dev-env link points core.hooksPath here, so it applies on
+# every machine rather than living untracked in .git/hooks.
+#
+# Bypass with `git commit --no-verify` when you need to.
+
+set -uo pipefail
+
+# Only shell scripts that are actually staged - linting the whole repo on every
+# commit is slow enough that it would get bypassed out of habit.
+staged() {
+    local f
+    while IFS= read -r f; do
+        [[ -f "$f" ]] || continue
+        head -1 "$f" 2>/dev/null | grep -qE '^#!.*((ba)?sh)$|^#!.*env +(ba)?sh' &&
+            printf '%s\n' "$f"
+    done < <(git diff --cached --name-only --diff-filter=ACM)
+}
+
+mapfile -t files < <(staged)
+((${#files[@]})) || exit 0
+
+if ! command -v shellcheck >/dev/null; then
+    printf '\033[1;33mwarn:\033[0m shellcheck not installed; skipping lint (./dev-env dev)\n' >&2
+    exit 0
+fi
+
+rc=0
+shellcheck --severity=warning "${files[@]}" || rc=1
+
+if command -v shfmt >/dev/null; then
+    shfmt -d -i 4 -ci "${files[@]}" || rc=1
+fi
+
+if ((rc)); then
+    printf '\n\033[1;31mlint failed\033[0m - fix, or commit with --no-verify\n' >&2
+    printf 'formatting can be applied with: shfmt -w -i 4 -ci %s\n' "${files[*]}" >&2
+fi
+
+exit $rc

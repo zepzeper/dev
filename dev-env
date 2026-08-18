@@ -190,6 +190,14 @@ do_link() {
             find "$DEV_ENV_HOME/$pkg/.local/scripts" -type f -exec chmod +x {} +
     done
 
+    # Versioned hooks, so the pre-commit lint exists on every machine instead
+    # of only wherever it was installed by hand.
+    if [[ -d "$DEV_ENV_HOME/hooks" ]] &&
+        [[ "$(git -C "$DEV_ENV_HOME" config --local core.hooksPath || true)" != "hooks" ]]; then
+        git -C "$DEV_ENV_HOME" config --local core.hooksPath hooks
+        info "git hooks enabled (core.hooksPath=hooks)"
+    fi
+
     info "linked"
 }
 

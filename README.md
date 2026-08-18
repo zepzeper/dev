@@ -77,6 +77,14 @@ bare `./dev-env` prints help and changes nothing. Piecemeal:
 ./dev-env doctor          # check this machine for problems
 ```
 
+## Hooks
+
+`dev-env link` points `core.hooksPath` at the tracked `hooks/` directory, so
+the pre-commit lint applies on every machine instead of living untracked in
+`.git/hooks`. It shellchecks only the staged shell scripts — linting the whole
+repo on every commit is slow enough that it would get bypassed out of habit.
+`git commit --no-verify` skips it.
+
 ## Keeping a machine current
 
 ```sh
@@ -103,6 +111,9 @@ come from the new code rather than the version that started.
 - no real files blocking stow
 - submodules initialized, at the recorded commit, and clean
 - repo committed and pushed
+- mason's declared tools are installed — the LSPs, linters, formatters and
+  `tree-sitter-cli` come from mason, not `runs/`, so `dev-env all` alone does
+  not give a working editor; nvim has to start once
 - `~/.local/scripts` and `~/.local/bin` on `PATH` — catches the case where the
   config is right on disk but your running shell predates it (`exec zsh`)
 

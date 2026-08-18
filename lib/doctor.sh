@@ -47,6 +47,51 @@ check_profile() {
     fi
 }
 
+# Mason is a second provisioning system that runs/ knows nothing about: the
+# LSPs, linters, formatters and tree-sitter-cli all come from it. `dev-env all`
+# therefore does not give a working editor - nvim has to start once - and
+# nothing surfaced that until something failed at the point of use.
+check_mason() {
+    local cfg="$DEV_ENV_HOME/env-common/.config/nvim/lua/plugins/lsp.lua"
+    local pkgdir="$HOME/.local/share/nvim/mason/packages"
+
+    [[ -f "$cfg" ]] || {
+        ok "mason: no nvim config (submodule not checked out)"
+        return 0
+    }
+
+    if [[ ! -d "$pkgdir" ]]; then
+        bad "mason has never run - no LSPs, formatters or tree-sitter yet"
+        hint "nvim --headless +MasonToolsInstallSync +qa"
+        return 0
+    fi
+
+    local -a want=() absent=()
+    local pkg
+    while IFS= read -r pkg; do want+=("$pkg"); done < <(
+        sed -n '/ensure_installed = {/,/^      },/p' "$cfg" |
+            grep -vE '^\s*--' |
+            grep -oE '"[A-Za-z0-9._-]+"' |
+            tr -d '"' | sort -u
+    )
+
+    ((${#want[@]})) || {
+        ok "mason: nothing declared"
+        return 0
+    }
+
+    for pkg in "${want[@]}"; do
+        [[ -d "$pkgdir/$pkg" ]] || absent+=("$pkg")
+    done
+
+    if ((${#absent[@]})); then
+        bad "mason packages missing (${#absent[@]}/${#want[@]}): ${absent[*]}"
+        hint "nvim --headless +MasonToolsInstallSync +qa"
+    else
+        ok "mason: ${#want[@]} declared tools installed"
+    fi
+}
+
 check_stow() {
     if command -v stow >/dev/null; then
         ok "stow present ($(stow --version | head -1))"
@@ -207,6 +252,7 @@ do_doctor() {
     check_profile
     info "tooling"
     check_stow
+    check_mason
     info "PATH"
     check_path
     info "links"
