@@ -1,4 +1,17 @@
 #!/usr/bin/env bash
+# Rust toolchain via rustup.
 
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+set -euo pipefail
+
+if ! [[ -x "$HOME/.cargo/bin/cargo" ]]; then
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+fi
+
+# rustup prints "source $HOME/.cargo/env" and moves on; without doing it the
+# very next line fails with "cargo: command not found" on a fresh machine.
+# shellcheck disable=SC1091
+[[ -f "$HOME/.cargo/env" ]] && . "$HOME/.cargo/env"
+
 cargo install stylua --features luajit
+
+"$HOME/.cargo/bin/cargo" --version

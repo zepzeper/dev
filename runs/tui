@@ -13,6 +13,9 @@ need() {
     }
 }
 
+# rustup installs here; the invoking shell may well not have it on PATH yet.
+[[ -f "$HOME/.cargo/env" ]] && . "$HOME/.cargo/env"
+
 need cargo rust
 
 # launch-bluetooth (bluetui). A genuine

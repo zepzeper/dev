@@ -41,4 +41,12 @@ case "$OS" in
         ;;
 esac
 
-command -v nvim >/dev/null && nvim --version | head -1
+# Report via the absolute path and never let this line set the exit code:
+# ~/.local/bin is not on PATH yet during a fresh bootstrap, so `command -v
+# nvim` failing here made a successful install report failure.
+if [[ -x "$HOME/.local/bin/nvim" ]]; then
+    "$HOME/.local/bin/nvim" --version | head -1
+elif command -v nvim >/dev/null; then
+    nvim --version | head -1
+fi
+true
