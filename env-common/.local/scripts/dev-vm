@@ -6,10 +6,8 @@
 # `display` attaches virt-viewer to a running guest at any point - including
 # mid-install, which is how you see why a graphical step failed.
 #
-# virgl (accel3d + gl.enable) matters more than it looks: without it GTK4 apps
-# like ghostty fall back to software rendering and the guest feels unusably
-# slow. gl requires listen=none - a spice socket that listens on a port cannot
-# do local GL passthrough.
+# 3D acceleration is opt-in via VM_ACCEL=1 - see the ACCEL comment below for
+# why it is not the default.
 
 set -euo pipefail
 
@@ -33,6 +31,14 @@ DISK_GB="${VM_DISK:-20}"
 # throwaway guests on a NAT network, so a known default is fine - override
 # with VM_PASSWORD if a guest is ever reachable from anywhere else.
 PASSWORD="${VM_PASSWORD:-dev}"
+
+# virgl off by default. It genuinely accelerates the guest, but with gl.enable
+# qemu keeps no CPU-side framebuffer - `virsh screenshot` fails with "no
+# surface" - and GL clients hand DMA-BUF handles straight to the spice client.
+# Anything the viewer cannot composite that way simply never appears: ghostty
+# rendered fine and was invisible, while 2D X11 apps still showed. Set
+# VM_ACCEL=1 if you specifically want GPU throughput over a reliable display.
+ACCEL="${VM_ACCEL:-0}"
 
 info() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33mwarn:\033[0m %s\n' "$*" >&2; }
@@ -152,8 +158,8 @@ EOF
         --os-variant "$([[ $distro == fedora ]] && echo fedora40 || echo ubuntu24.04)" \
         --import \
         --network network=default,model=virtio \
-        --graphics spice,gl.enable=yes,listen=none \
-        --video model.type=virtio,model.acceleration.accel3d=yes \
+        --graphics "spice,listen=none$([[ $ACCEL == 1 ]] && echo ',gl.enable=yes')" \
+        --video "model.type=virtio$([[ $ACCEL == 1 ]] && echo ',model.acceleration.accel3d=yes')" \
         --channel spicevmc \
         --noautoconsole
 
@@ -241,7 +247,8 @@ time, so the same definition covers both modes.
 Console login is $USER with password 'dev' (override: VM_PASSWORD).
 ssh uses your key; password auth over ssh is disabled.
 
-Overrides: VM_RAM (MB), VM_CPUS, VM_DISK (GB), VM_DIR, VM_PASSWORD
+Overrides: VM_RAM (MB), VM_CPUS, VM_DISK (GB), VM_DIR, VM_PASSWORD,
+           VM_ACCEL=1 (virgl 3D; breaks screenshots and can hide GL windows)
 EOF
 }
 
