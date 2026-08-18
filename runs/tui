@@ -18,6 +18,11 @@ need() {
 
 need cargo rust
 
+# bluetui links libdbus (it drives BlueZ over D-Bus), so the headers and
+# pkg-config must be present before cargo builds it. This never showed up on
+# Fedora because bluetui was already installed there and never rebuilt.
+install_packages dbus-devel pkg-config
+
 # launch-bluetooth (bluetui). A genuine
 # crates.io packages; --locked keeps a broken upstream dependency bump from
 # taking the build down.

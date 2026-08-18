@@ -47,12 +47,14 @@ pkg_name() {
         dnf:ffmpeg) echo "ffmpeg-free" ;; # real ffmpeg needs RPM Fusion
         dnf:php-zip) echo "php-pecl-zip" ;;
         dnf:php-curl) echo "" ;;          # ships inside php-common
+        dnf:pkg-config) echo "pkgconf-pkg-config" ;;
 
         # Ubuntu. Verified on noble (24.04) in a dev-vm guest.
         apt:go) echo "golang-go" ;;
         apt:libnotify) echo "libnotify-bin" ;;
         apt:util-linux) echo "util-linux" ;;
         apt:gtk3) echo "libgtk-3-bin" ;;
+        apt:dbus-devel) echo "libdbus-1-dev" ;;
 
         *) echo "$p" ;;
     esac
