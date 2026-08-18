@@ -476,7 +476,15 @@ main() {
         all)
             [[ "${2:-}" == "--force" || "${2:-}" == "-f" ]] && FORCE_LINK=1
             do_link
-            run_all
+            run_all || true
+
+            # Link again: on a bare machine neither hyprctl nor i3 exists yet,
+            # so the first pass could only stow env-common. The session
+            # installers have run by now, so the profile resolves and its
+            # package gets stowed - otherwise `all` needs running twice.
+            info "re-linking now that the session profile is installed"
+            do_link
+
             info "done"
             ;;
         "" | -h | --help | help)
