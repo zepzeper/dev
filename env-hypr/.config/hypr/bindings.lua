@@ -14,7 +14,6 @@ hl.bind("SUPER + SHIFT + T",      hl.dsp.exec_cmd("launch-tui btop"),           
 
 -- Unlike hyprlang, `#` in a lua string is not a comment, so URLs need no escaping.
 hl.bind("SUPER + SHIFT + G", hl.dsp.exec_cmd('launch-webapp "https://github.com/zepzeper"'), { description = "Github" })
-hl.bind("SUPER + SHIFT + S", hl.dsp.exec_cmd('launch-webapp "https://app.slack.com/client/T081WNW9VAT/C0A2LHLRZCH"'), { description = "Slack" })
 hl.bind("SUPER + SHIFT + W", hl.dsp.exec_cmd('launch-webapp "https://web.whatsapp.com/"'),   { description = "Whatsapp" })
 hl.bind("SUPER + SHIFT + D", hl.dsp.exec_cmd('launch-webapp "https://excalidraw.com/"'),     { description = "Draw" })
 hl.bind("SUPER + SHIFT + X", hl.dsp.exec_cmd('launch-webapp "https://x.com/"'),              { description = "X" })
@@ -23,17 +22,12 @@ hl.bind("SUPER + SHIFT + R", hl.dsp.exec_cmd('launch-webapp "https://reddit.com/
 
 hl.bind("SUPER + B",         hl.dsp.exec_cmd("launch-tui bluetui"),  { description = "Bluetooth" })
 hl.bind("SUPER + BackSpace", hl.dsp.exec_cmd("launch-menu apps"),    { description = "Apps" })
-hl.bind("SUPER + Delete",    hl.dsp.exec_cmd("fsearch"),             { description = "BSearch" })
 
 -- Toggle nightlight
-hl.bind("ALT + N", hl.dsp.exec_cmd("launch-nightlight"),        { description = "Toggle nightlight" })
 hl.bind("ALT + S", hl.dsp.exec_cmd("launch-workspace-toggle"),  { description = "Toggle workspace layout" })
 
--- Captures
-hl.bind("SHIFT + CTRL + P", hl.dsp.exec_cmd("launch-screenshot smart copy"), { description = "Screenshot to clipboard" })
-
 -- File sharing
-hl.bind("SHIFT + CTRL + S", hl.dsp.exec_cmd("launch-menu localsend"), { description = "Share" })
+hl.bind("SHIFT + CTRL + S", hl.dsp.exec_cmd("localsend"), { description = "Share" })
 
 -- Lock screen (hyprlock config lives in hyprlock.conf, still hyprlang)
 hl.bind("SUPER + CTRL + L", hl.dsp.exec_cmd("uwsm app -- hyprlock"), { description = "Lock screen" })

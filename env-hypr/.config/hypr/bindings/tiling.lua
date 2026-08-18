@@ -2,12 +2,8 @@
 hl.bind("SUPER + Q", hl.dsp.window.close(), { description = "Close window" })
 
 -- Control tiling
--- hl.bind("SUPER + J", hl.dsp.layout("togglesplit"), { description = "Toggle window split" }) -- dwindle
-hl.bind("SUPER + P",        hl.dsp.window.pseudo(),                                     { description = "Pseudo window" })
 hl.bind("SUPER + T",        hl.dsp.window.float(),                                      { description = "Toggle window floating/tiling" })
 hl.bind("SUPER + F",        hl.dsp.window.fullscreen({ mode = "fullscreen" }),           { description = "Full screen" })
-hl.bind("SUPER + CTRL + F", hl.dsp.window.fullscreen_state({ internal = 0, client = 2 }), { description = "Tiled full screen" })
-hl.bind("SUPER + ALT + F",  hl.dsp.window.fullscreen({ mode = "maximized" }),            { description = "Full width" })
 hl.bind("SUPER + O",        hl.dsp.exec_cmd("launch-window-pop"),                        { description = "Pop window out (float & pin)" })
 
 -- Swap active window with the one next to it

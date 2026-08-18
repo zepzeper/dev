@@ -50,5 +50,3 @@ hl.config({
 -- does not exist and LIBVA_DRIVER_NAME=nvidia silently disabled hardware
 -- video decode. Mesa needs no hint.
 
-hl.env("SCREENSHOT_DIR", home .. "/Pictures/Screenshots")
-hl.env("SCREENRECORD_DIR", home .. "/Videos/Recordings")
