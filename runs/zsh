@@ -20,6 +20,10 @@ if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
     # Unattended, and don't let the installer write its own .zshrc over ours.
     RUNZSH=no KEEP_ZSHRC=yes \
         sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+    sh -c "$(git clone https://github.com/zsh-users/zsh-autosuggestions "${ZSH_CUSTOM:-~/.oh-my-zsh/custom}"/plugins/zsh-autosuggestions)"
+    sh -c "$(git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "${ZSH_CUSTOM:-~/.oh-my-zsh/custom}"/plugins/zsh-syntax-highlighting)"
+    sh -c "$(git clone https://github.com/MichaelAquilina/zsh-you-should-use.git "${ZSH_CUSTOM:-~/.oh-my-zsh/custom}"/plugins/you-should-use)"
+    sh -c "$(git clone https://github.com/fdellwing/zsh-bat.git "${ZSH_CUSTOM:-~/.oh-my-zsh/custom}"/plugins/zsh-bat)"
 else
     echo "oh-my-zsh already installed"
 fi
