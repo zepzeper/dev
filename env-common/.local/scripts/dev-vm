@@ -17,6 +17,8 @@ set -euo pipefail
 # with "no network with matching name 'default'".
 export LIBVIRT_DEFAULT_URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
 
+DEV_ENV_HOME="${DEV_ENV_HOME:-$HOME/personal/dev}"
+
 VM_DIR="${VM_DIR:-$HOME/.local/share/dev-vm}"
 IMAGE_DIR="$VM_DIR/images"
 DISK_DIR="$VM_DIR/disks"
@@ -40,12 +42,7 @@ PASSWORD="${VM_PASSWORD:-dev}"
 # VM_ACCEL=1 if you specifically want GPU throughput over a reliable display.
 ACCEL="${VM_ACCEL:-0}"
 
-info() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
-warn() { printf '\033[1;33mwarn:\033[0m %s\n' "$*" >&2; }
-die() {
-    printf '\033[1;31merror:\033[0m %s\n' "$*" >&2
-    exit 1
-}
+source "$DEV_ENV_HOME/lib/ui.sh"
 
 image_url() {
     case "$1" in
