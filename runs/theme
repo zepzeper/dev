@@ -25,5 +25,5 @@ else
 fi
 
 echo "cursor themes available:"
-ls -d "$HOME/.local/share/icons"/*/ /usr/share/icons/*/ 2>/dev/null |
-    xargs -n1 basename 2>/dev/null | sort -u | head -6 | sed 's/^/  /'
+find "$HOME/.local/share/icons" /usr/share/icons -maxdepth 1 -mindepth 1 -type d \
+    -printf '  %f\n' 2>/dev/null | sort -u | head -6

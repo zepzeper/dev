@@ -99,7 +99,8 @@ cmd_create() {
 
     mkdir -p "$IMAGE_DIR" "$DISK_DIR"
 
-    local base="$IMAGE_DIR/$(basename "$url")"
+    local base
+    base="$IMAGE_DIR/$(basename "$url")"
     if [[ ! -f "$base" ]]; then
         info "downloading $(basename "$url")"
         curl --fail --location --progress-bar "$url" --output "$base.part"

@@ -18,7 +18,7 @@ if grep -q "^workspace = $current_workspace, layout:scrolling" "$STATE_FILE"; th
     notify-send "Workspace $current_workspace" "Layout: Default"
 else
     # Currently default, switch to scrolling
-    echo "workspace = $current_workspace, layout:scrolling" >> "$STATE_FILE"
+    echo "workspace = $current_workspace, layout:scrolling" >>"$STATE_FILE"
     hyprctl keyword workspace "$current_workspace, layout:scrolling"
     notify-send "Workspace $current_workspace" "Layout: Scrolling"
 fi

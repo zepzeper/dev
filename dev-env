@@ -56,6 +56,7 @@ active_packages() {
 source "$DEV_ENV_HOME/lib/ui.sh"
 
 source "$DEV_ENV_HOME/lib/doctor.sh"
+source "$DEV_ENV_HOME/lib/lint.sh"
 
 list_runs() {
     find "$RUNS_DIR" -maxdepth 1 -type f -printf '%f\n' | sort
@@ -72,6 +73,7 @@ commands:
                   --force moves conflicting real files to a backup first
   unlink          remove those symlinks
   doctor          check this machine for problems; non-zero exit if any
+  lint            shellcheck + shfmt over every shell script
   profile [name]  show or pin the session profile (hypr, i3)
   bootstrap       first run: age -> unlock secrets -> ssh remote ->
                   submodules -> link -> installers (implies --force)
@@ -108,21 +110,21 @@ clear_stale_links() {
     local target conflicts=0 pkg
 
     for pkg in $(active_packages); do
-    while IFS= read -r -d '' src; do
-        target="$HOME/${src#"$DEV_ENV_HOME/$pkg/"}"
+        while IFS= read -r -d '' src; do
+            target="$HOME/${src#"$DEV_ENV_HOME/$pkg/"}"
 
-        [[ -L "$target" ]] || continue
+            [[ -L "$target" ]] || continue
 
-        local dest
-        dest="$(readlink -f "$target" || true)"
+            local dest
+            dest="$(readlink -f "$target" || true)"
 
-        # Already pointing into this repo: stow will no-op, leave it.
-        [[ "$dest" == "$DEV_ENV_HOME"/* ]] && continue
+            # Already pointing into this repo: stow will no-op, leave it.
+            [[ "$dest" == "$DEV_ENV_HOME"/* ]] && continue
 
-        warn "replacing stale link: $target -> $dest"
-        rm "$target"
-        conflicts=$((conflicts + 1))
-    done < <(find "$DEV_ENV_HOME/$pkg" -mindepth 1 -print0)
+            warn "replacing stale link: $target -> $dest"
+            rm "$target"
+            conflicts=$((conflicts + 1))
+        done < <(find "$DEV_ENV_HOME/$pkg" -mindepth 1 -print0)
     done
 
     ((conflicts)) && info "cleared $conflicts stale link(s)"
@@ -155,7 +157,8 @@ handle_conflicts() {
   ./dev-env link --force"
     fi
 
-    local backup="$HOME/.local/share/dev-env/backup/$(date +%Y%m%d-%H%M%S)"
+    local backup
+    backup="$HOME/.local/share/dev-env/backup/$(date +%Y%m%d-%H%M%S)"
     info "backing up ${#conflicts[@]} conflicting file(s) to ${backup/#$HOME/\~}"
 
     for rel in "${conflicts[@]}"; do
@@ -284,6 +287,9 @@ main() {
             ;;
         doctor)
             do_doctor
+            ;;
+        lint)
+            do_lint
             ;;
         bootstrap)
             # Implies --force. Every fresh account has /etc/skel's .profile and

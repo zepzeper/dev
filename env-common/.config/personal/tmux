@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
 
 tmux=$(which tmux)
+# shellcheck disable=SC2139  # expanding now is intentional: it pins the
+# absolute path so the alias cannot recurse into itself.
 alias tmux="$tmux -2"

@@ -20,14 +20,12 @@ install_packages dbus-devel pkg-config
 # launch-bluetooth (bluetui). A genuine
 # crates.io packages; --locked keeps a broken upstream dependency bump from
 # taking the build down.
-for crate in bluetui; do
-    if command -v "$crate" >/dev/null; then
-        echo "$crate already installed: $(command -v "$crate")"
-    else
-        echo "installing $crate from crates.io"
-        cargo install --locked "$crate"
-    fi
-done
+if command -v bluetui >/dev/null; then
+    echo "bluetui already installed: $(command -v bluetui)"
+else
+    echo "installing bluetui from crates.io"
+    cargo install --locked bluetui
+fi
 
 echo
 echo "done - launch-bluetooth resolves"

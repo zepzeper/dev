@@ -30,10 +30,10 @@ show_apps_menu() {
             basename "$desktop_file" .desktop
         done
     done | sort -u)
-    
+
     # Show the menu
     selected=$(echo "$app_list" | rofi -dmenu -p "Launch App")
-    
+
     # Launch if something was selected
     if [ -n "$selected" ]; then
         gtk-launch "$selected.desktop" &

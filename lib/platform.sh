@@ -46,9 +46,10 @@ pkg_name() {
         dnf:npm) echo "nodejs22-npm" ;;
         dnf:ffmpeg) echo "ffmpeg-free" ;; # real ffmpeg needs RPM Fusion
         dnf:php-zip) echo "php-pecl-zip" ;;
-        dnf:php-curl) echo "" ;;          # ships inside php-common
+        dnf:php-curl) echo "" ;; # ships inside php-common
         dnf:pkg-config) echo "pkgconf-pkg-config" ;;
         dnf:helium) echo "helium-bin" ;;
+        dnf:shellcheck) echo "ShellCheck" ;;
         dnf:ayatana-appindicator) echo "libayatana-appindicator-gtk3" ;;
 
         # Ubuntu. Verified on noble (24.04) in a dev-vm guest.

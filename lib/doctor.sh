@@ -139,10 +139,14 @@ check_submodules() {
         path="$(echo "${line:1}" | awk '{print $2}')"
 
         case "$status" in
-            -) bad "submodule not initialized: $path"
-               hint "git submodule update --init $path" ;;
-            +) bad "submodule at a different commit than recorded: $path"
-               hint "commit the pointer, or: git submodule update $path" ;;
+            -)
+                bad "submodule not initialized: $path"
+                hint "git submodule update --init $path"
+                ;;
+            +)
+                bad "submodule at a different commit than recorded: $path"
+                hint "commit the pointer, or: git submodule update $path"
+                ;;
             U) bad "submodule has merge conflicts: $path" ;;
             *) ok "submodule $path" ;;
         esac
@@ -169,7 +173,7 @@ check_repo() {
     fi
 
     if git -C "$DEV_ENV_HOME" remote get-url origin >/dev/null 2>&1; then
-        ahead="$(git -C "$DEV_ENV_HOME" rev-list --count @{u}..HEAD 2>/dev/null || echo 0)"
+        ahead="$(git -C "$DEV_ENV_HOME" rev-list --count '@{u}'..HEAD 2>/dev/null || echo 0)"
         if [[ "$ahead" != "0" ]]; then
             bad "$ahead commit(s) not pushed"
         else
@@ -221,4 +225,3 @@ do_doctor() {
     printf '\n\033[1;32mall good\033[0m\n'
     return 0
 }
-

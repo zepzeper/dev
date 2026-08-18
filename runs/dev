@@ -19,6 +19,8 @@ install_packages \
     socat \
     curl \
     ripgrep \
+    shellcheck \
+    shfmt \
     unzip
 
 # GOPATH is set to ~/.local/go by .zsh_profile; honour it here too so `air`

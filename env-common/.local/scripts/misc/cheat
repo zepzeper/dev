@@ -5,7 +5,7 @@
 # username on the work laptop.
 RESOURCES="$(dirname "$(readlink -f "$0")")/resources"
 
-selected=`cat $RESOURCES/.tmux-cht-languages $RESOURCES/.tmux-cht-command | fzf`
+selected=$(cat $RESOURCES/.tmux-cht-languages $RESOURCES/.tmux-cht-command | fzf)
 if [[ -z $selected ]]; then
     exit 0
 fi
