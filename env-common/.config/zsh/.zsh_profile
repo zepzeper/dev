@@ -8,13 +8,10 @@ for i in $(find -L "$PERSONAL" -type f); do
     source "$i"
 done
 
-[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+bindkey -s ^f "tmux-sessionizer\n"
 
 # GOPATH, EDITOR, PATH and friends now live in ~/.config/personal/env, which
 # the loop above sources - so bash and zsh cannot drift apart again.
-
-# thanks gt
-alias gt='NODE_OPTIONS="--no-deprecation" gt'
 
 # source ~/.php_profile
 # source ~/.config/envman/PATH.env

@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+
+set -e
+
+INTERNAL="eDP-1"
+
+# Find connected external outputs
+mapfile -t EXTERNALS < <(
+    xrandr --query |
+        awk '$2 == "connected" && $1 != "eDP-1" { print $1 }'
+)
+
+# Check laptop lid state
+LID_STATE=$(cat /proc/acpi/button/lid/*/state 2>/dev/null | awk '{print $2}' || true)
+
+if [ ${#EXTERNALS[@]} -eq 0 ]; then
+    echo "No external monitor detected."
+
+    xrandr --output "$INTERNAL" --auto
+
+    exit 0
+fi
+
+EXTERNAL="${EXTERNALS[0]}"
+
+echo "External monitor: $EXTERNAL"
+echo "Lid state: ${LID_STATE:-unknown}"
+
+if [ "$LID_STATE" = "closed" ]; then
+    echo "Lid closed → external monitor only."
+
+    # Turn off laptop display and use external monitor.
+    xrandr \
+        --output "$INTERNAL" --off \
+        --output "$EXTERNAL" --auto --primary
+
+    # Move all existing workspaces to external monitor.
+    for workspace in $(i3-msg -t get_workspaces | jq -r '.[].name'); do
+        i3-msg "workspace \"$workspace\"; move workspace to output $EXTERNAL"
+    done
+
+else
+    echo "Lid open → laptop + external."
+
+    xrandr \
+        --output "$INTERNAL" --auto \
+        --output "$EXTERNAL" --auto --right-of "$INTERNAL"
+
+    # Put workspace 1-5 on laptop, 6-10 on external.
+    for workspace in 1 2 3 4 5; do
+        i3-msg "workspace $workspace; move workspace to output $INTERNAL"
+    done
+
+    for workspace in 6 7 8 9 10; do
+        i3-msg "workspace $workspace; move workspace to output $EXTERNAL"
+    done
+fi

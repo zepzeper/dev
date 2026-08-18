@@ -8,6 +8,8 @@ set $mod Mod4
 
 font pango:JetBrainsMono Nerd Font 10
 
+exec_always --no-startup-id ~/.config/i3/monitor
+
 # Hyprland uses ALT+drag to move and SUPER+drag to resize; i3 has one modifier
 # for both, so ALT matches the more common of the two.
 floating_modifier Mod1
