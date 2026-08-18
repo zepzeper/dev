@@ -11,7 +11,13 @@ case "$OS" in
         # metapackage pulls i3-wm in, so the old "try one, then the other" pair
         # of unguarded `apt install` calls was redundant - and neither was
         # checked, so a failure went unnoticed.
+        # A cloud image has no X server at all, so i3 would install with nothing
+        # to run on. xinit lets a session start straight from a TTY, which
+        # avoids pulling a whole display manager into a test guest.
         install_packages \
+            xorg \
+            xinit \
+            x11-xserver-utils \
             i3 \
             i3status \
             rofi \
