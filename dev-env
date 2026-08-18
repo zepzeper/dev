@@ -270,6 +270,19 @@ do_update() {
         git -C "$DEV_ENV_HOME" log --oneline "$before..$after" | sed 's/^/  /'
     fi
 
+    # The pull may have just replaced this very script, so everything below
+    # would otherwise run from the version that started. Re-exec once so the
+    # link, the installer list and doctor all come from the new code.
+    if [[ "$before" != "$after" && -z "${DEV_ENV_UPDATED:-}" ]]; then
+        info "re-executing with the updated dev-env"
+        export DEV_ENV_UPDATED=1
+        if ((UPDATE_RUN)); then
+            exec "$DEV_ENV_HOME/dev-env" update --all
+        else
+            exec "$DEV_ENV_HOME/dev-env" update
+        fi
+    fi
+
     info "submodules"
     git -C "$DEV_ENV_HOME" submodule update --init --recursive ||
         warn "submodule update failed"
