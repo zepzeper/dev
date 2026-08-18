@@ -74,7 +74,7 @@ commands:
   doctor          check this machine for problems; non-zero exit if any
   profile [name]  show or pin the session profile (hypr, i3)
   bootstrap       first run: age -> unlock secrets -> ssh remote ->
-                  submodules -> link -> installers
+                  submodules -> link -> installers (implies --force)
   secrets         install age and unlock secrets only
   all             link, then run every installer
   <name>...       run only the named installers
@@ -151,7 +151,8 @@ handle_conflicts() {
     if ((FORCE_LINK == 0)); then
         warn "these already exist as real files and would block stow:"
         printf '  ~/%s\n' "${conflicts[@]}" >&2
-        die "inspect them, then re-run: ./dev-env link --force  (moves them to a backup)"
+        die "inspect them, then re-run with --force to back them up first:
+  ./dev-env link --force"
     fi
 
     local backup="$HOME/.local/share/dev-env/backup/$(date +%Y%m%d-%H%M%S)"
@@ -285,7 +286,11 @@ main() {
             do_doctor
             ;;
         bootstrap)
-            [[ "${2:-}" == "--force" || "${2:-}" == "-f" ]] && FORCE_LINK=1
+            # Implies --force. Every fresh account has /etc/skel's .profile and
+            # friends, so the one command meant for a new machine would
+            # otherwise always stop on its own primary use case. Conflicts are
+            # moved to a timestamped backup, never deleted.
+            FORCE_LINK=1
             do_bootstrap
             ;;
         secrets)
