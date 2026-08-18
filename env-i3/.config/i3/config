@@ -21,7 +21,7 @@ hide_edge_borders smart
 # ------------------------------------------------------------------
 # Applications
 # ------------------------------------------------------------------
-set $term ghostty
+set $term /usr/bin/ghostty
 set $termfallback command -v $term >/dev/null && exec $term || exec i3-sensible-terminal
 
 # Hyprland's terminal binding, kept for parity on the laptop.
@@ -29,7 +29,7 @@ bindsym $mod+Shift+Delete exec --no-startup-id "$termfallback"
 # Also the i3 convention. Worth keeping as well: SUPER+SHIFT+Delete is bound to
 # a terminal on the Hyprland host too, so inside virt-viewer the host swallows
 # it and the guest never sees the key. SUPER+Return is free on the host.
-bindsym $mod+Return exec --no-startup-id "$termfallback"
+bindsym $mod+Shift+BackSpace exec --no-startup-id "$termfallback"
 bindsym $mod+Shift+f exec --no-startup-id nautilus --new-window
 bindsym $mod+Shift+b exec --no-startup-id xdg-open "https://home.krugten.org"
 bindsym $mod+Shift+t exec --no-startup-id "$term -e btop || x-terminal-emulator -e btop"
