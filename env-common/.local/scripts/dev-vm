@@ -5,6 +5,11 @@
 # but `start` never opens a window, so it costs nothing when nobody attaches.
 # `display` attaches virt-viewer to a running guest at any point - including
 # mid-install, which is how you see why a graphical step failed.
+#
+# virgl (accel3d + gl.enable) matters more than it looks: without it GTK4 apps
+# like ghostty fall back to software rendering and the guest feels unusably
+# slow. gl requires listen=none - a spice socket that listens on a port cannot
+# do local GL passthrough.
 
 set -euo pipefail
 
@@ -147,8 +152,8 @@ EOF
         --os-variant "$([[ $distro == fedora ]] && echo fedora40 || echo ubuntu24.04)" \
         --import \
         --network network=default,model=virtio \
-        --graphics spice,listen=none \
-        --video virtio \
+        --graphics spice,gl.enable=yes,listen=none \
+        --video model.type=virtio,model.acceleration.accel3d=yes \
         --channel spicevmc \
         --noautoconsole
 
