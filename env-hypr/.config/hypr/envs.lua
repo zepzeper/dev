@@ -44,10 +44,11 @@ hl.config({
     },
 })
 
--- NVIDIA
-hl.env("NVD_BACKEND", "direct")
-hl.env("LIBVA_DRIVER_NAME", "nvidia")
-hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
+-- No NVIDIA hints here on purpose. This box runs NVK/Mesa, not the
+-- proprietary stack: libGLX_nvidia.so.0 and the nvidia VAAPI driver are both
+-- absent, so __GLX_VENDOR_LIBRARY_NAME=nvidia pointed GLX at a library that
+-- does not exist and LIBVA_DRIVER_NAME=nvidia silently disabled hardware
+-- video decode. Mesa needs no hint.
 
 hl.env("SCREENSHOT_DIR", home .. "/Pictures/Screenshots")
 hl.env("SCREENRECORD_DIR", home .. "/Videos/Recordings")

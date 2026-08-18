@@ -157,6 +157,20 @@ Both columns are verified: Fedora against the repos, Ubuntu by running
 resolved there, `just` included — it is in noble's archives despite not being
 in older releases.
 
+## Environment
+
+`env-common/.config/personal/env` is the single source of truth for `PATH` and
+the exported variables. `.profile` sources it, `.xprofile` sources `.profile`,
+and `.zsh_profile` picks it up with everything else in that directory — so bash
+and zsh cannot drift apart, which they had.
+
+`path_add` only adds a directory that exists and never adds one twice. Nine of
+the previous entries pointed at directories that were never created and
+`~/.local/apps` was listed twice.
+
+Hyprland sets its cursor variables again in `envs.lua`, deliberately: a
+compositor started by uwsm never reads a login shell.
+
 ## Known gaps
 
 - `runs/ghostty` on Ubuntu installs a community `.deb` from

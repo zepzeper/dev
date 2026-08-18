@@ -1,6 +1,4 @@
-#export PATH=$PATH:$HOME/personal/ghostty/zig-out/bin
-#export PATH=$PATH:$HOME/.local/apps      # this is where i dump my fun programs...
-export PATH=$PATH:$HOME/.local/scripts
-export PATH=$PATH:$HOME/.local/bin
-export PATH=$PATH:$HOME/.local/odin/
-
+# Read by display managers, and by .xinitrc under startx. It used to restate a
+# subset of .profile and had drifted - missing ~/.cargo/bin and the npm path -
+# so it defers instead of duplicating.
+[ -f "$HOME/.profile" ] && . "$HOME/.profile"

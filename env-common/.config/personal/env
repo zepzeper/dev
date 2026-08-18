@@ -1,0 +1,33 @@
+# Shared environment. Sourced by .profile (bash/sh login, and .xprofile through
+# it) and automatically by .zsh_profile, which sources everything in this
+# directory. Must stay POSIX sh - it is read by both shells.
+
+# Only add a directory that exists, and never twice. Nine of the old PATH
+# entries pointed at directories that were never created, and ~/.local/apps was
+# listed twice; this makes both impossible and picks entries up automatically
+# once an installer creates them.
+path_add() {
+    case ":$PATH:" in
+        *":$1:"*) ;;
+        *) [ -d "$1" ] && PATH="$1:$PATH" ;;
+    esac
+}
+
+path_add "$HOME/.local/odin"
+path_add "$HOME/.local/go/bin"
+path_add "$HOME/.cargo/bin"
+path_add "$HOME/.local/scripts"
+path_add "$HOME/.local/bin"
+export PATH
+
+export EDITOR="nvim"
+export GIT_EDITOR="$EDITOR"
+export GOPATH="$HOME/.local/go"
+export N_PREFIX="$HOME/.local/n"
+export DEV_ENV_HOME="$HOME/personal/dev"
+
+# Cursor. Hyprland sets these itself in envs.lua because a compositor started
+# by uwsm never reads a login shell; setting them here is what gives the i3/X11
+# session the same cursor instead of the system default.
+export XCURSOR_THEME="Bibata-Modern-Classic"
+export XCURSOR_SIZE="24"

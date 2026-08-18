@@ -1,0 +1,6 @@
+# XCOMPOSEFILE points here from envs.lua. Without the file the variable is
+# inert; with it, Compose sequences work in GTK/Qt apps.
+include "%L"
+
+<Multi_key> <s> <h> : "¯\\_(ツ)_/¯"
+<Multi_key> <m> <i> : "🤘"
