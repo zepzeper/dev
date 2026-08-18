@@ -50,11 +50,13 @@ need() { command -v "$1" >/dev/null || die "$1 missing - run: dev-env vm"; }
 # Fail with something actionable rather than letting virt-install get half way
 # and leave a broken domain behind.
 preflight() {
-    systemctl is-active --quiet libvirtd ||
-        die "libvirtd is not running - sudo systemctl enable --now libvirtd"
-
-    virsh list --all >/dev/null 2>&1 ||
-        die "cannot reach $LIBVIRT_DEFAULT_URI - are you in the libvirt group?"
+    # Deliberately not `systemctl is-active libvirtd`: Fedora socket-activates
+    # it, so the service reads inactive after every boot until something
+    # connects. Connecting is both the real test and what starts it.
+    virsh list --all >/dev/null 2>&1 || die "cannot reach $LIBVIRT_DEFAULT_URI
+  is libvirt installed?  ./dev-env vm
+  socket enabled?        sudo systemctl enable --now libvirtd.socket
+  in the libvirt group?  groups | grep libvirt"
 
     # Membership added by runs/vm does not reach an already-running shell.
     if ! id -nG | tr ' ' '\n' | grep -qx libvirt && getent group libvirt | grep -q "\b$USER\b"; then
