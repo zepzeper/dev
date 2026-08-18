@@ -1,37 +1,39 @@
 #!/usr/bin/env bash
-# LocalSend, via flatpak on both distros.
+# LocalSend, from upstream's release tarball.
 #
-# Neither Fedora nor Ubuntu packages it, and upstream's releases are .apk/.deb
-# only. The flatpak app id - org.localsend.localsend_app - is also what the
-# hypr window rule in apps/localsend.lua matches on.
+# The binary is named localsend_app, which is what the hypr window rule in
+# apps/localsend.lua matches on and what launch-menu invokes.
 
 set -euo pipefail
 
-source "$(dirname "$0")/../lib/platform.sh"
+source "$(dirname "$0")/../lib/release.sh"
 
-APP_ID="org.localsend.localsend_app"
+have localsend_app && exit 0
 
-if command -v localsend >/dev/null; then
-    echo "localsend already installed: $(command -v localsend)"
-    exit 0
-fi
+ARCH="$(arch_name x86-64 arm-64)"
 
-if flatpak info "$APP_ID" >/dev/null 2>&1; then
-    echo "$APP_ID already installed"
-    exit 0
-fi
+# Not github_asset: the newest tag (v1.18.1) ships android apks only, so
+# releases/latest matches nothing and the install would silently fail.
+URL="$(github_asset_scan localsend/localsend "LocalSend-.*-linux-${ARCH}\.tar\.gz")"
 
-command -v flatpak >/dev/null || install_packages flatpak
-hash -r
+install_release localsend "$URL" localsend_app
 
-# Fedora ships a filtered flathub remote; Ubuntu usually ships none at all.
-if ! flatpak remotes --columns=name 2>/dev/null | grep -qx flathub; then
-    echo "adding the flathub remote"
-    sudo flatpak remote-add --if-not-exists flathub \
-        https://dl.flathub.org/repo/flathub.flatpakrepo
-fi
+# Desktop entry so it shows up in launch-menu's app list and xdg-open handoffs.
+DESKTOP="$HOME/.local/share/applications/localsend.desktop"
+mkdir -p "$(dirname "$DESKTOP")"
+cat >"$DESKTOP" <<EOF
+[Desktop Entry]
+Type=Application
+Name=LocalSend
+Comment=Share files to nearby devices
+Exec=$HOME/.local/bin/localsend_app
+Icon=$HOME/.local/localsend/data/flutter_assets/assets/img/logo-512.png
+Terminal=false
+Categories=Network;FileTransfer;
+StartupWMClass=localsend_app
+EOF
 
-echo "installing $APP_ID"
-sudo flatpak install -y --noninteractive flathub "$APP_ID"
+command -v update-desktop-database >/dev/null &&
+    update-desktop-database "$(dirname "$DESKTOP")" 2>/dev/null
 
-flatpak info "$APP_ID" 2>/dev/null | head -2
+echo "installed localsend_app"

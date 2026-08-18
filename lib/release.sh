@@ -32,6 +32,27 @@ github_asset() {
     printf '%s' "$url"
 }
 
+# Like github_asset, but walks back through recent releases instead of looking
+# only at the latest. Some projects stop shipping a platform for a release or
+# two - localsend's newest tag carries android apks only - and `releases/latest`
+# then silently matches nothing.
+github_asset_scan() {
+    local repo="$1" pattern="$2" url
+
+    url="$(curl -fsSL "https://api.github.com/repos/$repo/releases?per_page=15" |
+        grep '"browser_download_url":' |
+        grep -E "$pattern" |
+        head -n1 |
+        sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/')"
+
+    [[ -n "$url" ]] || {
+        echo "no asset matching '$pattern' in the last 15 releases of $repo" >&2
+        return 1
+    }
+
+    printf '%s' "$url"
+}
+
 # Map uname -m onto the naming a project actually uses.
 #   arch_name amd64 arm64   -> amd64 on x86_64
 arch_name() {
@@ -72,11 +93,15 @@ extract_archive() {
 
     local src="$tmp"
     if ((strip_top)); then
-        # Most of these archives hold a single top-level directory; some are
-        # flat, in which case there is nothing to strip.
-        local top
-        top="$(find "$tmp" -mindepth 1 -maxdepth 1 -type d | head -n1)"
-        [[ -n "$top" ]] && src="$top"
+        # Strip only when the archive is a single wrapper directory. Taking the
+        # first directory found instead would break flat archives: localsend
+        # unpacks to data/ lib/ localsend_app, and that picked data/ and threw
+        # the binary away.
+        local -a top
+        mapfile -t top < <(find "$tmp" -mindepth 1 -maxdepth 1)
+        if ((${#top[@]} == 1)) && [[ -d "${top[0]}" ]]; then
+            src="${top[0]}"
+        fi
     fi
 
     rm -rf "$dest"

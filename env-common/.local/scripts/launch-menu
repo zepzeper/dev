@@ -16,13 +16,9 @@ show_menu() {
 }
 
 show_localsend_menu() {
-    # Installed as a flatpak by runs/localsend; the app id is also what the
-    # hypr window rule matches on. `localsend_app` was never a real command.
-    if command -v localsend >/dev/null; then
-        localsend
-    else
-        flatpak run org.localsend.localsend_app
-    fi
+    # localsend_app is the real binary name from upstream's tarball, and is
+    # what the hypr window rule matches on.
+    localsend_app
 }
 
 show_apps_menu() {
