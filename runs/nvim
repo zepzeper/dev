@@ -56,7 +56,13 @@ if [[ -z "$(ls -A "$DEV_ENV_HOME/$NVIM_SM" 2>/dev/null)" ]]; then
 
     if ! git -C "$DEV_ENV_HOME" submodule update --init "$NVIM_SM" 2>/dev/null; then
         echo "  ssh failed (no key yet?) - retrying over https"
-        git -C "$DEV_ENV_HOME" -c "submodule.$NVIM_SM.url=https://github.com/zepzeper/nvim.git" \
+
+        # A url rewrite rather than -c submodule.<path>.url: `git submodule
+        # update` copies the url into .git/config on the first attempt, so the
+        # per-submodule override is ignored once that has happened. insteadOf
+        # is applied at transport level and wins either way.
+        git -C "$DEV_ENV_HOME" \
+            -c "url.https://github.com/.insteadOf=git@github.com:" \
             submodule update --init "$NVIM_SM"
     fi
 
