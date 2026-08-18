@@ -125,12 +125,13 @@ lives *inside* it. Clone over HTTPS first:
 ```sh
 git clone https://github.com/zepzeper/dev.git ~/personal/dev
 cd ~/personal/dev
-./dev-env age                      # install age
-dev-secrets unlock                 # passphrase from Bitwarden -> writes ~/.ssh/id_ed25519
-git remote set-url origin git@github.com:zepzeper/dev.git
-git submodule update --init --recursive
-./dev-env all
+./dev-env bootstrap
 ```
+
+`bootstrap` runs that whole sequence: install age, unlock secrets (prompts once
+for the passphrase), switch `origin` from https to ssh, fetch the submodules,
+link, and run the installers. It is idempotent — if the key is already present
+it skips straight to linking.
 
 Submodules are cloned after the key is in place, since `env-common/.config/nvim` uses
 an SSH URL. Cloning with `--recurse-submodules` up front would fail.

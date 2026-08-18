@@ -12,11 +12,6 @@ hl.bind("SUPER + SHIFT + B",      hl.dsp.exec_cmd(browser .. ' "https://home.kru
 hl.bind("SUPER + SHIFT + M",      hl.dsp.exec_cmd("launch-or-focus spotify"),             { description = "Music" })
 hl.bind("SUPER + SHIFT + T",      hl.dsp.exec_cmd("launch-tui btop"),                     { description = "Activity" })
 
--- exec rules replace the old `[float; size 1600 800]` prefix
-hl.bind("SUPER + SHIFT + O",
-    hl.dsp.exec_cmd("launch-tui $HOME/.local/bin/llm.sh", { float = true, size = { 1600, 800 } }),
-    { description = "LLM" })
-
 -- Unlike hyprlang, `#` in a lua string is not a comment, so URLs need no escaping.
 hl.bind("SUPER + SHIFT + G", hl.dsp.exec_cmd('launch-webapp "https://github.com/zepzeper"'), { description = "Github" })
 hl.bind("SUPER + SHIFT + S", hl.dsp.exec_cmd('launch-webapp "https://app.slack.com/client/T081WNW9VAT/C0A2LHLRZCH"'), { description = "Slack" })

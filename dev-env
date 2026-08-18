@@ -76,6 +76,9 @@ commands:
   unlink          remove those symlinks
   doctor          check this machine for problems; non-zero exit if any
   profile [name]  show or pin the session profile (hypr, i3)
+  bootstrap       first run: age -> unlock secrets -> ssh remote ->
+                  submodules -> link -> installers
+  secrets         install age and unlock secrets only
   all             link, then run every installer
   <name>...       run only the named installers
   --list, -l      list available installers
@@ -415,6 +418,47 @@ do_doctor() {
     return 0
 }
 
+# The whole first-run sequence, in the one order that works: the ssh key that
+# clones this repo lives inside it, so the clone has to be https, the key comes
+# out of secrets/, and only then can the ssh-url submodules be fetched.
+do_bootstrap() {
+    local key="$HOME/.ssh/id_ed25519"
+
+    if [[ -f "$key" ]]; then
+        info "ssh key already present"
+    else
+        info "installing age, then unlocking secrets"
+        run_one age || die "could not install age"
+
+        command -v dev-secrets >/dev/null ||
+            export PATH="$DEV_ENV_HOME/env-common/.local/scripts:$PATH"
+
+        # Interactive: prompts once for the passphrase.
+        dev-secrets unlock || die "unlock failed - wrong passphrase?"
+        [[ -f "$key" ]] || die "unlock did not produce $key"
+    fi
+
+    # An https clone cannot push, and the nvim submodule is an ssh url.
+    local origin
+    origin="$(git -C "$DEV_ENV_HOME" remote get-url origin 2>/dev/null || echo '')"
+    if [[ "$origin" == https://github.com/* ]]; then
+        info "switching origin to ssh now that the key is in place"
+        git -C "$DEV_ENV_HOME" remote set-url origin \
+            "git@github.com:${origin#https://github.com/}"
+    fi
+
+    info "fetching submodules"
+    git -C "$DEV_ENV_HOME" submodule update --init --recursive ||
+        warn "submodule fetch failed; runs/nvim will retry over https"
+
+    info "linking and provisioning"
+    do_link
+    run_all || true
+    do_link
+
+    info "bootstrap done"
+}
+
 run_one() {
     local name="$1"
     local script="$RUNS_DIR/$name"
@@ -462,6 +506,14 @@ main() {
             ;;
         doctor)
             do_doctor
+            ;;
+        bootstrap)
+            [[ "${2:-}" == "--force" || "${2:-}" == "-f" ]] && FORCE_LINK=1
+            do_bootstrap
+            ;;
+        secrets)
+            run_one age
+            dev-secrets unlock
             ;;
         profile)
             # main dispatches on $1 without shifting, so the argument is $2.
