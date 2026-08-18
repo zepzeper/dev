@@ -15,6 +15,7 @@ DEV_ENV_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNS_DIR="$DEV_ENV_HOME/runs"
 PROFILE_FILE="$DEV_ENV_HOME/.dev-profile"
 FORCE_LINK=0
+UPDATE_RUN=0
 
 # env-common is stowed everywhere; exactly one session profile joins it. The
 # laptop runs i3 on X11 and must not receive Hyprland configs or the launchers
@@ -74,6 +75,8 @@ commands:
   unlink          remove those symlinks
   doctor          check this machine for problems; non-zero exit if any
   lint            shellcheck + shfmt over every shell script
+  update [--all]  pull, update submodules, relink, then doctor;
+                  --all also re-runs the installers
   profile [name]  show or pin the session profile (hypr, i3)
   bootstrap       first run: age -> unlock secrets -> ssh remote ->
                   submodules -> link -> installers (implies --force)
@@ -240,6 +243,59 @@ do_bootstrap() {
     info "bootstrap done"
 }
 
+# Pull, re-link, and say what changed. Keeping a second machine current was
+# otherwise `git pull` plus remembering which installers had moved.
+do_update() {
+    local before after changed
+
+    git -C "$DEV_ENV_HOME" remote get-url origin >/dev/null 2>&1 ||
+        die "no origin remote to update from"
+
+    # Refuse rather than pull over local edits. Submodules are checked
+    # separately: nvim's lazy-lock.json is dirty as a matter of course.
+    [[ -z "$(git -C "$DEV_ENV_HOME" status --porcelain --ignore-submodules)" ]] ||
+        die "working tree is dirty - commit or stash first (dev-commit)"
+
+    before="$(git -C "$DEV_ENV_HOME" rev-parse HEAD)"
+
+    info "pulling"
+    git -C "$DEV_ENV_HOME" pull --ff-only || die "pull failed (diverged? rebase by hand)"
+
+    after="$(git -C "$DEV_ENV_HOME" rev-parse HEAD)"
+
+    if [[ "$before" == "$after" ]]; then
+        info "already up to date"
+    else
+        info "$(git -C "$DEV_ENV_HOME" rev-list --count "$before..$after") new commit(s)"
+        git -C "$DEV_ENV_HOME" log --oneline "$before..$after" | sed 's/^/  /'
+    fi
+
+    info "submodules"
+    git -C "$DEV_ENV_HOME" submodule update --init --recursive ||
+        warn "submodule update failed"
+
+    do_link
+
+    # Linking cannot re-provision, so name the installers that changed rather
+    # than silently leaving the machine on old packages.
+    if [[ "$before" != "$after" ]]; then
+        changed="$(git -C "$DEV_ENV_HOME" diff --name-only "$before..$after" -- runs/ lib/ |
+            sed -n 's|^runs/||p' | sort -u | tr '\n' ' ')"
+
+        if [[ -n "$changed" ]]; then
+            info "installers changed: $changed"
+            if ((UPDATE_RUN)); then
+                run_all || true
+            else
+                echo "  re-run them with: ./dev-env $changed"
+                echo "  or update with --all next time"
+            fi
+        fi
+    fi
+
+    do_doctor
+}
+
 run_one() {
     local name="$1"
     local script="$RUNS_DIR/$name"
@@ -290,6 +346,10 @@ main() {
             ;;
         lint)
             do_lint
+            ;;
+        update)
+            [[ "${2:-}" == "--all" ]] && UPDATE_RUN=1
+            do_update
             ;;
         bootstrap)
             # Implies --force. Every fresh account has /etc/skel's .profile and
