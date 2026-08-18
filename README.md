@@ -195,7 +195,26 @@ agent at all — the same way the wifi PSKs in this session already work:
 
 ```sh
 nmcli connection modify <NAME> +vpn.data password-flags=0
-read -rs -p 'VPN password: ' p && nmcli connection modify <NAME> +vpn.secrets "password=$p"; unset p
+nmcli --ask connection up id <NAME>
+```
+
+`--ask` prompts on the terminal, and with the flag now `0` NetworkManager keeps
+the secret it was handed, so later connects need no prompt. It also keeps the
+password out of both the shell history and the process list — worth preferring
+over passing `password=` as an argument, which is visible in `ps` for as long as
+`nmcli` runs.
+
+To set it without connecting, note that **the prompt is shell-specific**: the
+login shell here is zsh, where `read -p` means "read from a coprocess" and fails
+with `read: -p: no coprocess`. The prompt goes inside the parameter instead:
+
+```zsh
+read -rs "p?VPN password: "; echo         # zsh
+nmcli connection modify <NAME> +vpn.secrets "password=$p"; unset p
+```
+
+```bash
+read -rs -p 'VPN password: ' p            # bash
 ```
 
 That writes it to `/etc/NetworkManager/system-connections/<NAME>.nmconnection`,

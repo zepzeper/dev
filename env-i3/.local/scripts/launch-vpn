@@ -107,9 +107,12 @@ else
     if grep -qi 'secret\|not given' "$err"; then
         notify "VPN needs a password" \
             "$target has no stored secret - see 'System TUIs' in the dev README"
-        echo "no stored secret for '$target'. Make it system-owned once:" >&2
+        # --ask rather than setting vpn.secrets directly: it keeps the password
+        # out of the shell history and out of ps, and NetworkManager stores what
+        # it was handed once the flag says system-owned.
+        echo "no stored secret for '$target'. Store it once, in a terminal:" >&2
         echo "  nmcli connection modify '$target' +vpn.data password-flags=0" >&2
-        echo "  nmcli connection modify '$target' +vpn.secrets password=..." >&2
+        echo "  nmcli --ask connection up id '$target'" >&2
         exit 1
     fi
 
