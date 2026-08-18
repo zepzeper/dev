@@ -122,11 +122,72 @@ offers every connection NetworkManager types as `vpn` or `wireguard`, so
 swapping the profile later needs no change to it. With one profile it toggles
 straight away; with several it asks through rofi, `●` connected and `○` not.
 
-The profile itself is **not in this repo** — it carries credentials. Import it
-once per machine:
+The profile itself is **not in this repo** — it carries credentials. Set it up
+once per machine, either from an `.ovpn` file:
 
 ```sh
 nmcli connection import type openvpn file /path/to/profile.ovpn
+```
+
+or, for a certificate-based server where all you have is a keypair, by pointing
+a new connection at the files. Certs alone are never enough: the **CA
+certificate** and the **server address** have to come from whoever runs the VPN,
+since nothing in a client `.crt`/`.key` pair says who to trust or where to dial.
+
+```sh
+mkdir -p ~/.cert/nm-openvpn && chmod 700 ~/.cert/nm-openvpn
+cp ca.crt client.crt client.key ~/.cert/nm-openvpn/
+chmod 600 ~/.cert/nm-openvpn/client.key
+
+nmcli connection add type vpn vpn-type openvpn con-name work-vpn ifname '*'
+nmcli connection modify work-vpn vpn.data \
+  'connection-type=password-tls, remote=vpn.example.com, port=1194, ca=/home/zepzeper/.cert/nm-openvpn/ca.crt, cert=/home/zepzeper/.cert/nm-openvpn/client.crt, key=/home/zepzeper/.cert/nm-openvpn/client.key'
+```
+
+Paths in `vpn.data` must be absolute — `~` is not expanded.
+
+#### The password has to be system-owned
+
+This is the one thing that differs from GNOME, and it is worth understanding
+rather than working around. A VPN password can be stored three ways, recorded as
+`password-flags` in `vpn.data`:
+
+| Flag | Meaning | Works in this i3 session? |
+| --- | --- | --- |
+| `0` | system-owned, in the connection file | **yes** |
+| `1` | agent-owned, in gnome-keyring | no |
+| `2` | never saved, always ask | no |
+
+Under GNOME, PAM unlocks gnome-keyring at login, so an agent-owned secret can be
+handed to NetworkManager on demand. A bare `startx` i3 session has no unlocked
+keyring, and `launch-vpn` runs detached with no tty, so there is nowhere for a
+prompt to go either. The failure looks like:
+
+```
+password for vpn.secrets.password not given in passwd-file
+```
+
+`launch-vpn` recognises that specific case and says so rather than reporting a
+generic failure. The fix is to make the secret system-owned, which needs no
+agent at all — the same way the wifi PSKs in this session already work:
+
+```sh
+nmcli connection modify <NAME> +vpn.data password-flags=0
+read -rs -p 'VPN password: ' p && nmcli connection modify <NAME> +vpn.secrets "password=$p"; unset p
+```
+
+That writes it to `/etc/NetworkManager/system-connections/<NAME>.nmconnection`,
+root-only `0600`. The alternative — starting and PAM-unlocking gnome-keyring in
+the i3 session — is more moving parts for the same result on a single-user
+laptop, so it is deliberately not done here.
+
+The certs themselves are a good fit for `secrets/`, so a rebuilt machine does
+not need someone to re-send them:
+
+```sh
+dev-secrets add vpn-ca   ~/.cert/nm-openvpn/ca.crt     '~/.cert/nm-openvpn/ca.crt'     644
+dev-secrets add vpn-cert ~/.cert/nm-openvpn/client.crt '~/.cert/nm-openvpn/client.crt' 644
+dev-secrets add vpn-key  ~/.cert/nm-openvpn/client.key '~/.cert/nm-openvpn/client.key' 600
 ```
 
 `runs/network` installs the rest, including `network-manager-gnome`. The i3

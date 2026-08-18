@@ -83,13 +83,36 @@ if is_active "$target"; then
     notify "VPN down" "$target"
 else
     notify "Connecting" "$target"
+
     # No --ask: this runs detached from any terminal, so a prompt would have
-    # nowhere to go. nm-applet is the secret agent that pops the password
-    # dialog, which is why runs/network installs it.
-    if nmcli connection up id "$target" >/dev/null; then
+    # nowhere to go.
+    err="$(mktemp)"
+    # shellcheck disable=SC2064 # expand $err now, not at trap time
+    trap "rm -f '$err'" EXIT
+
+    if nmcli connection up id "$target" >/dev/null 2>"$err"; then
         notify "VPN up" "$target"
-    else
-        notify "VPN failed" "$target - check: journalctl -u NetworkManager -n 40"
+        exit 0
+    fi
+
+    # A missing secret is worth its own message, because it is the normal state
+    # in this session rather than a fault: under GNOME, PAM unlocks
+    # gnome-keyring at login so an agent-owned password can be handed over, but
+    # a bare startx i3 session has no unlocked keyring and no tty to prompt on.
+    # The durable fix is to make the password system-owned, which needs no agent
+    # at all - the same way the wifi PSKs already work here.
+    # Any activation failure that mentions a secret is this case; NetworkManager
+    # words it several ways ("not given in passwd-file", "secrets were
+    # required", "no valid VPN secrets") depending on which end gave up.
+    if grep -qi 'secret\|not given' "$err"; then
+        notify "VPN needs a password" \
+            "$target has no stored secret - see 'System TUIs' in the dev README"
+        echo "no stored secret for '$target'. Make it system-owned once:" >&2
+        echo "  nmcli connection modify '$target' +vpn.data password-flags=0" >&2
+        echo "  nmcli connection modify '$target' +vpn.secrets password=..." >&2
         exit 1
     fi
+
+    notify "VPN failed" "$(head -1 "$err")"
+    exit 1
 fi
