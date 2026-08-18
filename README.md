@@ -151,8 +151,10 @@ canonical names per distro:
 | `php-zip` | `php-pecl-zip` | `php-zip` |
 | `php-curl` | *(in `php-common`)* | `php-curl` |
 
-The Fedora column is verified against the repos. **The Ubuntu column is not** —
-it has not been run on the laptop yet.
+Both columns are verified: Fedora against the repos, Ubuntu by running
+`./dev-env dev` in a noble guest (see `dev-vm`). Everything in `runs/dev`
+resolved there, `just` included — it is in noble's archives despite not being
+in older releases.
 
 ## Known gaps
 
