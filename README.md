@@ -185,8 +185,5 @@ compositor started by uwsm never reads a login shell.
   display-only - the workstation is on ethernet.
 - `runs/hyprland`, `runs/nvim` and the copr path in `runs/ghostty` need sudo and
   have not been run end to end yet - only `runs/tui` and `runs/fonts` have.
-- `env-hypr/.config/hypr/scripts/game-submap.sh` (unbinds ALT keys while Factorio is
-  focused) is not wired into anything. It needs an `hl.exec_cmd` line in
-  `env-hypr/.config/hypr/autostart.lua` to actually run.
 - `env-common/.local/scripts/misc/tmux-sessionizer` is the old homegrown sessionizer,
   superseded by the vendored one but kept for reference.
