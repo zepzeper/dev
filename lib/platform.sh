@@ -49,6 +49,7 @@ pkg_name() {
         dnf:php-curl) echo "" ;;          # ships inside php-common
         dnf:pkg-config) echo "pkgconf-pkg-config" ;;
         dnf:helium) echo "helium-bin" ;;
+        dnf:ayatana-appindicator) echo "libayatana-appindicator-gtk3" ;;
 
         # Ubuntu. Verified on noble (24.04) in a dev-vm guest.
         apt:go) echo "golang-go" ;;
@@ -56,6 +57,7 @@ pkg_name() {
         apt:util-linux) echo "util-linux" ;;
         apt:gtk3) echo "libgtk-3-bin" ;;
         apt:dbus-devel) echo "libdbus-1-dev" ;;
+        apt:ayatana-appindicator) echo "libayatana-appindicator3-1" ;;
 
         *) echo "$p" ;;
     esac

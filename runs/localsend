@@ -6,9 +6,15 @@
 
 set -euo pipefail
 
+source "$(dirname "$0")/../lib/platform.sh"
 source "$(dirname "$0")/../lib/release.sh"
 
 have localsend_app && exit 0
+
+# The tarball bundles flutter's own libraries but not system ones, so without
+# this it dies at startup with "libayatana-appindicator3.so.1: cannot open
+# shared object file". A flatpak would carry it; a tarball does not.
+install_packages ayatana-appindicator
 
 ARCH="$(arch_name x86-64 arm-64)"
 
