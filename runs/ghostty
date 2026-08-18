@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 source "$(dirname "$0")/../lib/platform.sh"
+
+if command -v ghostty >/dev/null; then
+    echo "ghostty already installed: $(ghostty --version 2>/dev/null | head -1)"
+    exit 0
+fi
 
 case "$OS" in
     fedora)
@@ -11,23 +18,52 @@ case "$OS" in
         ;;
 
     ubuntu | debian)
-        # Ghostty is not in Ubuntu's archives. Upstream ships no .deb either,
-        # so it has to be built. .zsh_profile already puts
-        # ~/personal/ghostty/zig-out/bin on PATH, which is where this lands.
-        if command -v ghostty >/dev/null; then
-            echo "ghostty already on PATH: $(command -v ghostty)"
-            exit 0
+        # Upstream ships no .deb and building needs zig 0.16-dev, which Ubuntu
+        # does not package at all - so a source build means bootstrapping a zig
+        # toolchain first. These community builds track upstream releases and
+        # match the version the copr gives Fedora, keeping both machines level.
+        REPO="mkasberg/ghostty-ubuntu"
+
+        case "$(dpkg --print-architecture)" in
+            amd64) ARCH="amd64" ;;
+            arm64) ARCH="arm64" ;;
+            *)
+                echo "No ghostty build for $(dpkg --print-architecture)" >&2
+                exit 1
+                ;;
+        esac
+
+        # Ubuntu assets are keyed by version (24.04), Debian's by codename.
+        [[ "$OS" == "ubuntu" ]] && TAG="$VERSION_ID" || TAG="$VERSION_CODENAME"
+
+        echo "looking for a ghostty build for $OS $TAG/$ARCH"
+
+        URL="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" |
+            grep '"browser_download_url":' |
+            grep "_${ARCH}_${TAG}\.deb" |
+            head -n1 |
+            sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/')"
+
+        if [[ -z "$URL" ]]; then
+            echo "No prebuilt ghostty for $OS $TAG/$ARCH." >&2
+            echo "Build from source instead (needs zig >= 0.16):" >&2
+            echo "  https://ghostty.org/docs/install/build" >&2
+            exit 1
         fi
 
-        echo "Ghostty has no Ubuntu package - build it from source:"
-        echo
-        echo "  sudo apt-get install -y libgtk-4-dev libadwaita-1-dev git"
-        echo "  # install zig, then:"
-        echo "  git clone https://github.com/ghostty-org/ghostty ~/personal/ghostty"
-        echo "  cd ~/personal/ghostty && zig build -Doptimize=ReleaseFast"
-        echo
-        echo "Note: that path is only added by .zsh_profile, so it is not on"
-        echo "PATH until runs/zsh has changed your login shell. The i3 profile"
-        echo "uses i3-sensible-terminal, so a session works without ghostty."
+        TMP_DIR="$(mktemp -d)"
+        trap 'rm -rf "$TMP_DIR"' EXIT
+
+        echo "downloading $(basename "$URL")"
+        curl --fail --location --progress-bar "$URL" \
+            --output "$TMP_DIR/ghostty.deb"
+
+        # apt-get install on a local .deb resolves its dependencies; dpkg -i
+        # would leave them unconfigured.
+        apt_update_once
+        sudo apt-get install -y "$TMP_DIR/ghostty.deb"
         ;;
 esac
+
+command -v ghostty >/dev/null && ghostty --version | head -1
+true

@@ -158,9 +158,9 @@ in older releases.
 
 ## Known gaps
 
-- `runs/ghostty` cannot install on Ubuntu; upstream ships no `.deb`, so it
-  prints build instructions instead. `~/personal/ghostty/zig-out/bin` is
-  already on `PATH` for that case.
+- `runs/ghostty` on Ubuntu installs a community `.deb` from
+  `mkasberg/ghostty-ubuntu`, since upstream ships none and a source build needs
+  zig 0.16-dev. It tracks the same upstream version the Fedora copr provides.
 - `runs/i3` is Ubuntu-only by design; Fedora runs Hyprland.
 - `launch-menu` calls `launch-screenrecorder` and `localsend_app`, and the hypr
   `SUPER+SHIFT+O` binding calls `~/.local/bin/llm.sh`. None of the three exist

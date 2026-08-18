@@ -40,7 +40,11 @@ floating_modifier $mod
 # terminals. Binding straight to ghostty left this profile with no way to open
 # a terminal at all: ghostty has no Ubuntu package, and this profile only ever
 # runs on Ubuntu.
-bindsym $mod+Return exec i3-sensible-terminal
+# TERMINAL is honoured first by i3-sensible-terminal, so ghostty is used when
+# runs/ghostty has installed it and any other terminal otherwise - the session
+# is never left without one.
+set $term ghostty
+bindsym $mod+Return exec --no-startup-id "command -v $term >/dev/null && exec $term || exec i3-sensible-terminal"
 
 # kill focused window
 # bindsym $mod+space exec "/home/theprimeagen/dotfiles/awesome-streamerrc/ThePrimeagen/tmux2"
