@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# Bring the VPN up or down.
+#
+# The work laptop's VPN is an OpenVPN profile NetworkManager owns, so this
+# drives nmcli rather than openvpn(8) directly. That is the difference between
+# a working connection and a confusing one: NetworkManager is what installs the
+# routes, hands the DNS servers to the split-DNS resolver, and lets nm-applet's
+# secret agent prompt for a password the profile has not saved. Calling openvpn
+# by hand gets the tunnel and none of the rest.
+#
+# Anything NetworkManager calls a vpn - and native wireguard connections, which
+# it reports under their own type - is offered, so importing a different profile
+# later needs no change here.
+
+set -euo pipefail
+
+command -v nmcli >/dev/null || {
+    echo "nmcli not found - run: ./dev-env network" >&2
+    exit 1
+}
+
+notify() {
+    if command -v notify-send >/dev/null; then
+        notify-send -a VPN "$1" "${2:-}"
+    else
+        echo "$1${2:+: $2}"
+    fi
+}
+
+# A connection NAME may contain colons and spaces; TYPE cannot. So the type is
+# read as the last field and stripped, rather than splitting blindly on the
+# first colon and truncating any name that has one. -t also escapes literal
+# colons inside a value as \:, which has to come back out or `nmcli up id`
+# will not match the name it is given.
+vpn_names() {
+    nmcli -t -f NAME,TYPE connection show ${1:+--active} |
+        awk -F: '$NF == "vpn" || $NF == "wireguard" {
+            sub(/:[^:]*$/, "")
+            gsub(/\\:/, ":")
+            print
+        }'
+}
+
+mapfile -t conns < <(vpn_names)
+
+if ((${#conns[@]} == 0)); then
+    notify "No VPN configured" "Import one: nmcli connection import type openvpn file <profile>.ovpn"
+    exit 0
+fi
+
+mapfile -t active < <(vpn_names active)
+
+is_active() {
+    local n
+    for n in ${active[@]+"${active[@]}"}; do
+        [[ "$n" == "$1" ]] && return 0
+    done
+    return 1
+}
+
+# One profile is the common case, where a picker is just a keypress in the way.
+# Several have to be chosen between.
+if ((${#conns[@]} == 1)); then
+    target="${conns[0]}"
+else
+    menu=""
+    for c in "${conns[@]}"; do
+        if is_active "$c"; then
+            menu+="● $c"$'\n'
+        else
+            menu+="○ $c"$'\n'
+        fi
+    done
+
+    choice="$(printf '%s' "$menu" | rofi -dmenu -i -p VPN)" || exit 0
+    [[ -n "$choice" ]] || exit 0
+    target="${choice#* }" # strip the ●/○ marker
+fi
+
+if is_active "$target"; then
+    notify "Disconnecting" "$target"
+    nmcli connection down id "$target" >/dev/null
+    notify "VPN down" "$target"
+else
+    notify "Connecting" "$target"
+    # No --ask: this runs detached from any terminal, so a prompt would have
+    # nowhere to go. nm-applet is the secret agent that pops the password
+    # dialog, which is why runs/network installs it.
+    if nmcli connection up id "$target" >/dev/null; then
+        notify "VPN up" "$target"
+    else
+        notify "VPN failed" "$target - check: journalctl -u NetworkManager -n 40"
+        exit 1
+    fi
+fi

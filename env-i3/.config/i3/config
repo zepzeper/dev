@@ -22,6 +22,12 @@ default_border pixel 2
 default_floating_border pixel 2
 hide_edge_borders smart
 
+# launch-tui tags each terminal zepzeper.<tool>. Float them centred at the same
+# 875x600 env-hypr's floating-window rule uses, so a TUI opens identically on
+# either machine. Matching on instance rather than class is deliberate: ghostty
+# fills both WM_CLASS fields from separate options and launch-tui sets each.
+for_window [instance="^zepzeper\."] floating enable, resize set 875 600, move position center
+
 # ------------------------------------------------------------------
 # Applications
 # ------------------------------------------------------------------
@@ -32,7 +38,16 @@ bindsym $mod+Shift+Delete exec --no-startup-id "$term"
 bindsym $mod+Shift+f exec --no-startup-id nautilus --new-window
 bindsym $mod+Shift+b exec --no-startup-id xdg-open "https://home.krugten.org"
 bindsym $mod+Shift+t exec --no-startup-id "$term -e btop || x-terminal-emulator -e btop"
-bindsym $mod+b      exec --no-startup-id "$term -e bluetui || x-terminal-emulator -e bluetui"
+
+# System controls, all TUIs in a floating terminal - the same tools the
+# workstation uses, so the habits carry. launch-or-focus-tui means a second
+# press focuses the open window instead of stacking another one up.
+bindsym $mod+b       exec --no-startup-id launch-bluetooth
+bindsym $mod+Shift+a exec --no-startup-id launch-audio
+bindsym $mod+Shift+n exec --no-startup-id launch-wifi
+# Not $mod+Shift+v, which is already split horizontal.
+bindsym $mod+Ctrl+v  exec --no-startup-id launch-vpn
+
 bindsym $mod+BackSpace exec --no-startup-id launch-menu apps
 bindsym $mod+d      exec --no-startup-id rofi -show run
 

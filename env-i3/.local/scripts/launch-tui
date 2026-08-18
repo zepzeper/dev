@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Open a TUI in a terminal tagged with a window class i3 can match.
+#
+# The hypr twin of this goes through uwsm-app and xdg-terminal-exec, both
+# Wayland-only, so the i3 session needs its own. Ghostty builds X11's WM_CLASS
+# from two separate options - --class fills the class field, --x11-instance-name
+# the instance field - and setting both to the same zepzeper.* id means an i3
+# criterion matches whichever of the two it looks at. The ids deliberately match
+# the ones env-hypr's window rules already use, so the float rules read the same
+# on both machines.
+
+set -euo pipefail
+
+(($#)) || {
+    echo "usage: launch-tui <command> [args...]" >&2
+    exit 1
+}
+
+APP_ID="zepzeper.$(basename "$1")"
+
+# setsid so the terminal outlives the shell i3 spawned to run this.
+exec setsid "${TERMINAL:-ghostty}" \
+    --class="$APP_ID" \
+    --x11-instance-name="$APP_ID" \
+    -e "$@"

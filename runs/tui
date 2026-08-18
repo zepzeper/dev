@@ -15,17 +15,31 @@ need cargo rust
 # bluetui links libdbus (it drives BlueZ over D-Bus), so the headers and
 # pkg-config must be present before cargo builds it. This never showed up on
 # Fedora because bluetui was already installed there and never rebuilt.
-install_packages dbus-devel pkg-config
+#
+# wiremix is the same story against PipeWire: pipewire-sys generates its
+# bindings with bindgen, so libclang has to be there too, not just the headers.
+install_packages dbus-devel pkg-config pipewire-devel clang-devel
 
-# launch-bluetooth (bluetui). A genuine
-# crates.io packages; --locked keeps a broken upstream dependency bump from
-# taking the build down.
-if command -v bluetui >/dev/null; then
-    echo "bluetui already installed: $(command -v bluetui)"
-else
-    echo "installing bluetui from crates.io"
-    cargo install --locked bluetui
-fi
+# Both come from crates.io; --locked keeps a broken upstream dependency bump
+# from taking the build down.
+#
+# wiremix was missing here even though the hypr launch-audio has always called
+# it - it had been installed by hand on the workstation, so a fresh machine got
+# an audio binding that opened a terminal and immediately closed it.
+install_crate() {
+    local crate="$1"
+    local for_what="$2"
+
+    if command -v "$crate" >/dev/null; then
+        echo "$crate already installed: $(command -v "$crate")"
+    else
+        echo "installing $crate from crates.io ($for_what)"
+        cargo install --locked "$crate"
+    fi
+}
+
+install_crate bluetui launch-bluetooth
+install_crate wiremix launch-audio
 
 echo
-echo "done - launch-bluetooth resolves"
+echo "done - launch-bluetooth and launch-audio resolve"

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# NetworkManager, plus the pieces the i3 launchers and the tray actually need.
+#
+# The i3 config has exec'd nm-applet since it was written, but no runs/ script
+# ever installed network-manager-gnome, so the tray icon silently never
+# appeared. That package matters for more than the icon: it carries the secret
+# agent that prompts for a VPN password, and nm-connection-editor, which is the
+# sane way to import or fix up a .ovpn profile by hand.
+
+set -euo pipefail
+
+source "$(dirname "$0")/../lib/platform.sh"
+
+install_packages \
+    networkmanager \
+    networkmanager-tui \
+    networkmanager-applet \
+    networkmanager-openvpn \
+    rfkill
+
+# nmcli and nmtui both talk to the daemon over D-Bus and say nothing useful
+# when it is not running - which is the default on a minimal or cloud image,
+# where the package is present but never enabled.
+if systemctl is-enabled --quiet NetworkManager 2>/dev/null; then
+    echo "NetworkManager already enabled"
+else
+    echo "enabling NetworkManager"
+    sudo systemctl enable --now NetworkManager
+fi
+
+echo
+echo "done - launch-wifi and launch-vpn resolve"
+echo
+echo "The VPN profile itself is not in this repo (it carries credentials)."
+echo "Import it once per machine:"
+echo "  nmcli connection import type openvpn file /path/to/profile.ovpn"

@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Launch the wifi/connection picker (nmtui, which ships with NetworkManager).
+#
+# This is the gap the README recorded for a long time. impala was the obvious
+# candidate and was dropped for a good reason - it drives iwd, while these
+# machines run NetworkManager - and nmtui is the one picker that speaks to the
+# daemon actually in charge here. `connect` opens straight on the activate-a-
+# connection list instead of nmtui's top menu.
+
+# An rfkill soft block makes the wifi list come up empty with no explanation,
+# which reads as "no networks in range" rather than "the radio is off".
+rfkill unblock wifi 2>/dev/null
+
+exec launch-or-focus-tui nmtui connect

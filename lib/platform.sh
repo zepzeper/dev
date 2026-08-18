@@ -51,6 +51,11 @@ pkg_name() {
         dnf:helium) echo "helium-bin" ;;
         dnf:shellcheck) echo "ShellCheck" ;;
         dnf:ayatana-appindicator) echo "libayatana-appindicator-gtk3" ;;
+        dnf:networkmanager) echo "NetworkManager" ;;
+        dnf:networkmanager-tui) echo "NetworkManager-tui" ;;
+        dnf:networkmanager-applet) echo "network-manager-applet" ;;
+        dnf:networkmanager-openvpn) echo "NetworkManager-openvpn-gnome" ;;
+        dnf:rfkill) echo "util-linux" ;; # Fedora never split it out
 
         # Ubuntu. Verified on noble (24.04) in a dev-vm guest.
         apt:go) echo "golang-go" ;;
@@ -59,6 +64,19 @@ pkg_name() {
         apt:gtk3) echo "libgtk-3-bin" ;;
         apt:dbus-devel) echo "libdbus-1-dev" ;;
         apt:ayatana-appindicator) echo "libayatana-appindicator3-1" ;;
+
+        # Not yet exercised in a dev-vm guest, unlike the entries above - these
+        # are the noble archive names, so treat a failure here as a name to fix
+        # rather than a missing package.
+        apt:networkmanager) echo "network-manager" ;;
+        apt:networkmanager-tui) echo "" ;; # nmtui ships inside network-manager
+        apt:networkmanager-applet) echo "network-manager-gnome" ;;
+        # The -gnome package, not the bare plugin: it carries the auth dialog
+        # nm-applet needs to prompt for the VPN password. Without it a connect
+        # attempt fails with no visible reason.
+        apt:networkmanager-openvpn) echo "network-manager-openvpn-gnome" ;;
+        apt:pipewire-devel) echo "libpipewire-0.3-dev" ;;
+        apt:clang-devel) echo "libclang-dev" ;; # bindgen needs libclang
 
         *) echo "$p" ;;
     esac

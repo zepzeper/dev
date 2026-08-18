@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Launch a TUI, or focus it if it is already open, so holding the key down does
+# not leave a pile of wiremix windows behind.
+#
+# The hypr twin asks hyprctl for the client list; i3's tree serves the same
+# purpose. i3 splits WM_CLASS into window_properties.class and .instance, and
+# launch-tui sets both to the same id, so matching one is enough.
+
+set -euo pipefail
+
+(($#)) || {
+    echo "usage: launch-or-focus-tui <command> [args...]" >&2
+    exit 1
+}
+
+APP_ID="zepzeper.$(basename "$1")"
+
+# A criterion that matches nothing is still a successful i3 command, so the
+# window has to be found in the tree first rather than inferred from i3-msg.
+if i3-msg -t get_tree |
+    jq -e --arg id "$APP_ID" '
+        .. | objects
+        | select(.window_properties != null)
+        | select(.window_properties.instance == $id)
+    ' >/dev/null 2>&1; then
+    exec i3-msg "[instance=\"^${APP_ID}\$\"] focus" >/dev/null
+fi
+
+exec launch-tui "$@"
