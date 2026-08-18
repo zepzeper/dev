@@ -98,7 +98,7 @@ tools the workstation uses so the habits carry across:
 | Key | Tool | What |
 | --- | --- | --- |
 | `$mod+Shift+a` | `wiremix` | audio devices and volume (PipeWire) |
-| `$mod+Shift+n` | `nmtui connect` | wifi picker |
+| `$mod+Shift+n` | `wlctl` | wifi + VPN profiles (NetworkManager) |
 | `$mod+Ctrl+v` | `nmcli` + rofi | VPN up/down (not `$mod+Shift+v`, which splits) |
 | `$mod+b` | `bluetui` | bluetooth |
 
@@ -110,8 +110,22 @@ Wayland-only. Ghostty fills X11's two `WM_CLASS` fields from separate options �
 `zepzeper.<tool>`, which is what the `for_window` float rule matches and what
 keeps the ids identical to the hypr window rules.
 
-Wifi is `nmtui` because these machines run **NetworkManager**. `impala` was the
-obvious pick and was dropped for a real reason: it drives **iwd**.
+Wifi is `wlctl`, and the detour is worth recording. Omarchy — which this config
+descends from, hence `launch-or-focus`'s usage string — uses `impala`, and
+`impala` is the better-looking tool. It drives **iwd**, which is no use here:
+both the wifi and the OpenVPN profile live in **NetworkManager**, and iwd cannot
+do the 802.1X a work network may ask for. impala's maintainer turned down a
+NetworkManager backend as too complex, so `wlctl` exists to be exactly that.
+`nmtui` was the stopgap before it and is a newt dialog that no theme can reach.
+
+`wlctl` is young — 0.1.x, GPLv3 — so if it disappoints, `launch-wifi` is a
+two-line revert to `nmtui connect`.
+
+Both `wlctl` and the VPN toggle need a **polkit authentication agent**, which
+GNOME's session starts and a bare i3 session does not. Without one, anything
+needing admin authorisation — deleting a saved profile, say — fails with no
+dialog and no visible reason, exactly like the VPN password below. The i3 config
+starts `polkit-gnome-authentication-agent-1`; `runs/i3` installs it.
 
 The VPN is an OpenVPN profile NetworkManager owns, so `launch-vpn` drives
 `nmcli` rather than `openvpn(8)` — NetworkManager is what installs the routes,
@@ -351,13 +365,17 @@ compositor started by uwsm never reads a login shell.
   `SUPER+SHIFT+O` binding calls `~/.local/bin/llm.sh`. None of the three exist
   in this repo or on disk, so those branches stay broken.
 - waybar's network module is display-only; the workstation is on ethernet. The
-  i3 laptop has `launch-wifi`, but hypr has no equivalent binding yet - the
+  i3 laptop has `launch-wifi` and `launch-vpn`, but hypr has no equivalent
+  binding yet - the
   launchers there would need `launch-wifi`/`launch-vpn` copies in env-hypr, or
   the four one-line wrappers moved to env-common with only `launch-tui` and
   `launch-or-focus-tui` staying per-profile.
-- `runs/tui` builds `wiremix` and `bluetui` from crates.io. The Ubuntu build
-  deps (`libpipewire-0.3-dev`, `libclang-dev`) have not been exercised in a
-  dev-vm guest yet, unlike the rest of the apt names.
+- `runs/tui` builds `wiremix`, `bluetui` and `wlctl` from crates.io. The Ubuntu
+  build deps (`libpipewire-0.3-dev`, `libclang-dev`) have not been exercised in
+  a dev-vm guest yet, unlike the rest of the apt names.
+- rofi has no theme in this repo, so `launch-menu`, `$mod+d` and the VPN picker
+  all render in rofi's stock look while ghostty is on Rose Pine Moon
+  (`#161521`). A `.rasi` matching it would fix all three at once.
 - `runs/hyprland`, `runs/nvim` and the copr path in `runs/ghostty` need sudo and
   have not been run end to end yet - only `runs/tui` and `runs/fonts` have.
 - `env-common/.local/scripts/misc/tmux-sessionizer` is the old homegrown sessionizer,

@@ -155,3 +155,10 @@ bar {
 }
 
 exec --no-startup-id nm-applet
+
+# A polkit authentication agent. GNOME's session starts one; a bare i3 session
+# does not, so anything needing admin authorisation - wlctl deleting a saved
+# profile, for instance - fails with no dialog and no visible reason, the same
+# way the VPN password did. env-i3 is Ubuntu-only, so that path comes first;
+# the libexec one is where every other distro puts it.
+exec --no-startup-id sh -c 'for a in /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1 /usr/libexec/polkit-gnome-authentication-agent-1; do [ -x "$a" ] && exec "$a"; done'

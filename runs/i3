@@ -25,7 +25,8 @@ case "$OS" in
             xss-lock \
             jq \
             libnotify-bin \
-            xdg-utils
+            xdg-utils \
+            polkit-agent
 
         # Closing the lid at the desk must not suspend the machine. logind's
         # "docked" test counts *external* connectors only - it skips eDP/LVDS -

@@ -41,5 +41,11 @@ install_crate() {
 install_crate bluetui launch-bluetooth
 install_crate wiremix launch-audio
 
+# wlctl is impala's UX rebuilt on NetworkManager. impala itself is what Omarchy
+# uses and is the obvious pick, but it drives iwd - no use on a machine whose
+# wifi and OpenVPN profile both live in NetworkManager, and iwd cannot do the
+# 802.1X a work network may want. wlctl covers wifi and VPN profiles both.
+install_crate wlctl launch-wifi
+
 echo
-echo "done - launch-bluetooth and launch-audio resolve"
+echo "done - launch-bluetooth, launch-audio and launch-wifi resolve"

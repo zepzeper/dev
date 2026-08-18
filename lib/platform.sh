@@ -56,6 +56,9 @@ pkg_name() {
         dnf:networkmanager-applet) echo "network-manager-applet" ;;
         dnf:networkmanager-openvpn) echo "NetworkManager-openvpn-gnome" ;;
         dnf:rfkill) echo "util-linux" ;; # Fedora never split it out
+        # Retired on Fedora 44, and the workstation runs Hyprland, whose session
+        # brings its own agent - so there is nothing to install here.
+        dnf:polkit-agent) echo "" ;;
 
         # Ubuntu. Verified on noble (24.04) in a dev-vm guest.
         apt:go) echo "golang-go" ;;
@@ -77,6 +80,7 @@ pkg_name() {
         apt:networkmanager-openvpn) echo "network-manager-openvpn-gnome" ;;
         apt:pipewire-devel) echo "libpipewire-0.3-dev" ;;
         apt:clang-devel) echo "libclang-dev" ;; # bindgen needs libclang
+        apt:polkit-agent) echo "policykit-1-gnome" ;;
 
         *) echo "$p" ;;
     esac
