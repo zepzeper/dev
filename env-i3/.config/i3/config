@@ -8,7 +8,11 @@ set $mod Mod4
 
 font pango:Iosevka Term 10
 
+# monitor applies the layout once, now; monitor-watch keeps applying it as the
+# lid and the cable move. Both are exec_always so an i3 reload revives them,
+# and monitor-watch holds a lock so the reload does not stack up watchers.
 exec_always --no-startup-id ~/.config/i3/monitor
+exec_always --no-startup-id ~/.config/i3/monitor-watch
 
 # Hyprland uses ALT+drag to move and SUPER+drag to resize; i3 has one modifier
 # for both, so ALT matches the more common of the two.
@@ -42,6 +46,10 @@ bindsym $mod+Shift+x exec --no-startup-id xdg-open "https://x.com/"
 bindsym $mod+Shift+m exec --no-startup-id xdg-open "https://mastodon.social/home/"
 
 bindsym $mod+Ctrl+l exec --no-startup-id i3lock -c 161521
+
+# Re-apply the display layout by hand, for the monitor that comes back in a
+# state xrandr misreported.
+bindsym $mod+Shift+s exec --no-startup-id ~/.config/i3/monitor
 
 # ------------------------------------------------------------------
 # Windows

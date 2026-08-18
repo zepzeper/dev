@@ -92,6 +92,27 @@ check_mason() {
     fi
 }
 
+# The lid drop-in is root-owned and outside stow, so `link` cannot restore it
+# and nothing would notice it had gone until the laptop suspended itself on a
+# closed lid at the desk - which looks like a crash, not a config problem.
+check_lid() {
+    [[ "$(detect_profile)" == "i3" ]] || return 0
+
+    local conf=/etc/systemd/logind.conf.d/10-lid.conf
+
+    if [[ ! -f "$conf" ]]; then
+        bad "no lid drop-in: a closed lid will suspend even with a monitor attached"
+        hint "./dev-env i3"
+    elif grep -q '^HandleLidSwitchDocked=ignore' "$conf"; then
+        ok "lid: docked lid-close ignored"
+    else
+        bad "$conf does not set HandleLidSwitchDocked=ignore"
+        hint "./dev-env i3 rewrites it"
+    fi
+
+    return 0
+}
+
 check_stow() {
     if command -v stow >/dev/null; then
         ok "stow present ($(stow --version | head -1))"
@@ -252,6 +273,7 @@ do_doctor() {
     check_profile
     info "tooling"
     check_stow
+    check_lid
     check_mason
     info "PATH"
     check_path

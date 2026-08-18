@@ -26,6 +26,24 @@ case "$OS" in
             jq \
             libnotify-bin \
             xdg-utils
+
+        # Closing the lid at the desk must not suspend the machine. logind's
+        # "docked" test counts *external* connectors only - it skips eDP/LVDS -
+        # so one monitor plugged in is enough to select HandleLidSwitchDocked,
+        # and the bare HandleLidSwitch still suspends the undocked laptop on
+        # the way into a bag. Doing it here rather than in a dotfile because
+        # the file is root-owned and outside stow's reach.
+        sudo install -d -m 755 /etc/systemd/logind.conf.d
+        sudo tee /etc/systemd/logind.conf.d/10-lid.conf >/dev/null <<'LID'
+[Login]
+HandleLidSwitch=suspend
+HandleLidSwitchExternalPower=suspend
+HandleLidSwitchDocked=ignore
+LID
+
+        # Deliberately not restarting logind: it terminates the running
+        # session on the spot. The drop-in applies at the next boot.
+        echo "lid drop-in written; it takes effect after a reboot"
         ;;
 
     fedora)

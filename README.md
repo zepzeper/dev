@@ -52,6 +52,44 @@ Consequence worth remembering: with `ZDOTDIR` set, a `~/.zshrc` is **ignored
 entirely**. If zsh ever seems to load the wrong config, check `echo $ZDOTDIR`
 first.
 
+### Displays (i3)
+
+The laptop lives on an external monitor with the lid shut, and only opens for
+meetings, so the lid is the switch that picks the layout:
+
+| Lid | External | Result |
+| --- | --- | --- |
+| closed | yes | external only, primary — the desk default |
+| open | yes | both on, laptop primary and to the left |
+| closed | no | logind suspends |
+| — | no | laptop only, primary |
+
+Two halves have to agree, and only one of them is a dotfile.
+
+`env-i3/.config/i3/monitor` decides the layout and is idempotent, so i3 runs it
+at start and on reload, `monitor-watch` runs it on every change, and
+`$mod+Shift+s` runs it by hand when a monitor comes back in a state xrandr got
+wrong. `monitor-watch` is a 2-second poll rather than a udev rule because
+**closing the lid emits no drm uevent** — the panel stays `connected` and only
+the ACPI lid button moves, so a udev rule would catch the hotplug and miss the
+case the laptop spends its day in. It takes a `flock`, so `exec_always` cannot
+stack up a watcher per reload.
+
+The other half is `/etc/systemd/logind.conf.d/10-lid.conf`, written by
+`runs/i3`. Without it logind suspends the machine on a closed lid before any of
+the above gets a say. It sets `HandleLidSwitchDocked=ignore`, and logind's
+"docked" test counts *external* connectors only — it skips eDP/LVDS — so one
+monitor attached is enough. `HandleLidSwitch=suspend` keeps the normal
+into-the-bag behaviour when nothing is plugged in. **It applies at the next
+boot**: restarting `systemd-logind` kills the running session, so `runs/i3`
+deliberately does not. The file is root-owned and outside stow's reach, so
+`doctor` checks it — `link` could never restore it.
+
+Workspaces are deliberately left where they are when the panel switches on.
+i3 already moves them off an output as it is disabled, and dragging them back
+mid-meeting is worse than an empty second screen. To pin one, add a
+`workspace 5 output eDP-1` line to the i3 config.
+
 ## Bootstrap a machine
 
 Only `git` has to pre-exist. `stow` is the one tool the linking step itself

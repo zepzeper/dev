@@ -27,13 +27,34 @@ commit_repo() {
         git -C "$path" commit -m "$MESSAGE"
     fi
 
-    # Push even when clean - a previous run may have committed without pushing.
-    if git -C "$path" remote get-url origin >/dev/null 2>&1; then
+    # Pushing even when clean is deliberate - a previous run may have committed
+    # without pushing - but counting unpushed commits keeps that safety net
+    # without firing a doomed push at a vendored submodule nobody here can
+    # write to.
+    local ahead
+    ahead="$(git -C "$path" rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)"
+
+    if ((ahead == 0)); then
+        echo "skip push $label: nothing to push"
+    elif git -C "$path" remote get-url origin >/dev/null 2>&1; then
         git -C "$path" push
     else
         echo "skip push $label: no origin"
     fi
 }
 
-commit_repo "$DEV_ENV_HOME/env/.config/nvim" "nvim (submodule)"
+# The nvim path used to be spelled out here, and drifted silently the moment
+# the package was renamed env/ -> env-common/: commit_repo skipped it as
+# "missing" on every run, while the superproject below still committed and
+# pushed the new gitlink. That is how master ended up recording a submodule
+# commit that had never left the machine it was authored on, breaking `git
+# pull` everywhere else with "upload-pack: not our ref". Read the paths out of
+# .gitmodules so a rename cannot desync them again.
+while IFS= read -r path; do
+    commit_repo "$DEV_ENV_HOME/$path" "$path (submodule)"
+done < <(
+    git -C "$DEV_ENV_HOME" config -f .gitmodules --get-regexp '^submodule\..*\.path$' |
+        awk '{ print $2 }'
+)
+
 commit_repo "$DEV_ENV_HOME" "dev"

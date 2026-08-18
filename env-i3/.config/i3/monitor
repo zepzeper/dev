@@ -1,57 +1,94 @@
 #!/usr/bin/env bash
+# Applies the display layout for the current lid + external-monitor state.
+#
+#   lid closed + external   external only, primary            (the desk default)
+#   lid open   + external   both on, laptop primary and left  (meetings)
+#   no external             laptop only, primary
+#
+# Idempotent on purpose: i3 runs it at start and on reload, monitor-watch runs
+# it on every hotplug, and $mod+Shift+s runs it by hand. One place decides what
+# the screens do, and running it twice changes nothing.
+#
+# Closing the lid with nothing else plugged in is deliberately not handled here
+# - that is logind's job, via the HandleLidSwitch drop-in that runs/i3 writes.
 
-set -e
+set -euo pipefail
 
-INTERNAL="eDP-1"
+# xrandr calls the panel eDP-1 on this laptop, but reading it out of the
+# connector list rather than hardcoding it keeps the script working on any
+# other machine - and the old version hardcoded it twice, once in a place the
+# INTERNAL variable was supposed to cover.
+INTERNAL="$(
+    xrandr --query |
+        awk '$2 == "connected" && $1 ~ /^(eDP|LVDS)/ { print $1; exit }'
+)"
 
-# Find connected external outputs
 mapfile -t EXTERNALS < <(
     xrandr --query |
-        awk '$2 == "connected" && $1 != "eDP-1" { print $1 }'
+        awk -v internal="$INTERNAL" '$2 == "connected" && $1 != internal { print $1 }'
 )
 
-# Check laptop lid state
-LID_STATE=$(cat /proc/acpi/button/lid/*/state 2>/dev/null | awk '{print $2}' || true)
+# /proc/acpi/button/lid exists on essentially every laptop, but a machine
+# without it (or a desktop) must not fall into the lid-closed branch.
+lid_state() {
+    local f
+    for f in /proc/acpi/button/lid/*/state; do
+        [[ -r "$f" ]] || continue
+        awk '{ print $NF }' "$f"
+        return
+    done
+    echo unknown
+}
 
-if [ ${#EXTERNALS[@]} -eq 0 ]; then
-    echo "No external monitor detected."
+LID="$(lid_state)"
 
-    xrandr --output "$INTERNAL" --auto
+# A machine with no eDP/LVDS connector at all is not a laptop; leave the panel
+# out of every xrandr call rather than passing --output "" and failing.
+if [[ -z "$INTERNAL" ]]; then
+    echo "No internal panel detected; treating every output as external."
+fi
 
+if ((${#EXTERNALS[@]} == 0)); then
+    echo "No external monitor; laptop only."
+    [[ -n "$INTERNAL" ]] && xrandr --output "$INTERNAL" --auto --primary
     exit 0
 fi
 
-EXTERNAL="${EXTERNALS[0]}"
+echo "External: ${EXTERNALS[*]}"
+echo "Lid: $LID"
 
-echo "External monitor: $EXTERNAL"
-echo "Lid state: ${LID_STATE:-unknown}"
+args=()
 
-if [ "$LID_STATE" = "closed" ]; then
-    echo "Lid closed → external monitor only."
+primary_set=0
+prev=""
 
-    # Turn off laptop display and use external monitor.
-    xrandr \
-        --output "$INTERNAL" --off \
-        --output "$EXTERNAL" --auto --primary
-
-    # Move all existing workspaces to external monitor.
-    for workspace in $(i3-msg -t get_workspaces | jq -r '.[].name'); do
-        i3-msg "workspace \"$workspace\"; move workspace to output $EXTERNAL"
-    done
-
-else
-    echo "Lid open → laptop + external."
-
-    xrandr \
-        --output "$INTERNAL" --auto \
-        --output "$EXTERNAL" --auto --right-of "$INTERNAL"
-
-    # Put workspace 1-5 on laptop, 6-10 on external.
-    for workspace in 1 2 3 4 5; do
-        i3-msg "workspace $workspace; move workspace to output $INTERNAL"
-    done
-
-    for workspace in 6 7 8 9 10; do
-        i3-msg "workspace $workspace; move workspace to output $EXTERNAL"
-    done
+if [[ -n "$INTERNAL" ]] && [[ "$LID" == "closed" ]]; then
+    echo "Lid closed -> external only."
+    # i3 relocates the workspaces off an output as it is disabled, so turning
+    # the panel off is the whole job; the old explicit move loop walked every
+    # workspace to do what i3 had already done, flickering through all ten and
+    # leaving the focus parked on the last one.
+    args+=(--output "$INTERNAL" --off)
+elif [[ -n "$INTERNAL" ]]; then
+    echo "Lid open -> laptop primary, external to its right."
+    args+=(--output "$INTERNAL" --auto --primary)
+    primary_set=1
+    prev="$INTERNAL"
 fi
+
+# Chain the externals left to right. Usually there is exactly one, but a dock
+# with two would otherwise have the second land stacked at 0x0 on top of the
+# first.
+for out in "${EXTERNALS[@]}"; do
+    args+=(--output "$out" --auto)
+
+    ((primary_set)) || {
+        args+=(--primary)
+        primary_set=1
+    }
+
+    [[ -n "$prev" ]] && args+=(--right-of "$prev")
+    prev="$out"
+done
+
+xrandr "${args[@]}"
