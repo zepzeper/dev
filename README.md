@@ -77,6 +77,22 @@ bare `./dev-env` prints help and changes nothing. Piecemeal:
 ./dev-env doctor          # check this machine for problems
 ```
 
+## Keeping a machine current
+
+```sh
+./dev-env update          # pull, submodules, relink, doctor
+./dev-env update --all    # and re-run every installer
+```
+
+`update` names the `runs/` scripts that changed since the last pull, because
+linking cannot re-provision — a new package in `runs/dev` needs that installer
+run, not just a relink.
+
+It refuses on a dirty tree rather than pulling over local edits, ignoring
+submodules since nvim's `lazy-lock.json` is dirty as a matter of course. And it
+re-execs itself after a pull that changed `dev-env`, so the relink and doctor
+come from the new code rather than the version that started.
+
 ## doctor
 
 `./dev-env doctor` checks the machine and exits non-zero if anything is wrong:
