@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# Tailscale, and the login that puts this machine on the mesh.
+#
+# Deliberately not part of runs/network: that one is NetworkManager and the i3
+# tray. This is a mesh VPN with its own daemon, its own repo and a login step,
+# and a failure here must not be able to take wifi down with it.
+
+set -euo pipefail
+
+source "$(dirname "$0")/../lib/platform.sh"
+
+# An auth key makes the login non-interactive. It is a credential, so it lives
+# in dev-secrets rather than in this repo:
+#   dev-secrets add tailscale-authkey <file> '~/.config/tailscale/authkey' 600
+# Without one the login still works, it just prints a URL to open in a browser.
+AUTHKEY_FILE="${TS_AUTHKEY_FILE:-$HOME/.config/tailscale/authkey}"
+
+# ds10u advertises 192.168.1.0/24. Accepting it is what lets this machine reach
+# Pi-hole at 192.168.1.2 and the ingress at 192.168.1.3 while away from home -
+# the same addresses Pi-hole hands out on the LAN, so one answer works in both
+# places. On a machine physically on that LAN the directly-connected route wins
+# and traffic stays off the tunnel, which is the behaviour we want at home.
+TS_ACCEPT_ROUTES="${TS_ACCEPT_ROUTES:-true}"
+
+add_repo() {
+    case "$OS" in
+        fedora)
+            if [[ -f /etc/yum.repos.d/tailscale.repo ]]; then
+                echo "  tailscale repo already enabled"
+                return 0
+            fi
+            echo "  enabling tailscale repo"
+            sudo dnf -q -y config-manager addrepo \
+                --from-repofile=https://pkgs.tailscale.com/stable/fedora/tailscale.repo
+            ;;
+        ubuntu | debian)
+            if [[ -f /etc/apt/sources.list.d/tailscale.list ]]; then
+                echo "  tailscale repo already enabled"
+                return 0
+            fi
+            echo "  enabling tailscale repo"
+            local codename="${VERSION_CODENAME:-}"
+            [[ -n "$codename" ]] || {
+                echo "  cannot determine the release codename" >&2
+                return 1
+            }
+            sudo install -m 0755 -d /usr/share/keyrings
+            curl -fsSL "https://pkgs.tailscale.com/stable/$OS/$codename.noarmor.gpg" |
+                sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
+            curl -fsSL "https://pkgs.tailscale.com/stable/$OS/$codename.tailscale-keyring.list" |
+                sudo tee /etc/apt/sources.list.d/tailscale.list >/dev/null
+            # The new repo has to be indexed before install_packages runs.
+            _APT_UPDATED=0
+            ;;
+    esac
+}
+
+add_repo
+install_packages tailscale
+
+if systemctl is-enabled --quiet tailscaled 2>/dev/null; then
+    echo "tailscaled already enabled"
+else
+    echo "enabling tailscaled"
+    sudo systemctl enable --now tailscaled
+fi
+
+# `tailscale status` exits non-zero when logged out, which is the only state
+# worth acting on - re-running `up` on an already-connected node would reset
+# flags that were set deliberately from elsewhere.
+if tailscale status >/dev/null 2>&1; then
+    echo "already on the tailnet:"
+    tailscale status --peers=false 2>/dev/null | head -2
+else
+    # --operator lets this user run `tailscale` without sudo afterwards.
+    up_args=(--accept-routes="$TS_ACCEPT_ROUTES" --operator="$USER")
+
+    if [[ -f "$AUTHKEY_FILE" ]]; then
+        echo "logging in with the stored auth key"
+        sudo tailscale up "${up_args[@]}" --auth-key="$(cat "$AUTHKEY_FILE")"
+    else
+        echo "no auth key at ${AUTHKEY_FILE/#$HOME/\~}"
+        echo "logging in interactively - open the URL below"
+        sudo tailscale up "${up_args[@]}"
+    fi
+
+    tailscale status --peers=false 2>/dev/null | head -2
+fi

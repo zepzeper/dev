@@ -28,6 +28,15 @@ install_packages python3 python3-pip python3-venv
 [[ -x "$ANSIBLE_ENV/bin/python" ]] || python3 -m venv "$ANSIBLE_ENV"
 
 "$ANSIBLE_ENV/bin/pip" install --quiet --upgrade pip
+
+# A venv built before the switch still carries the `ansible` bundle. Installing
+# ansible-core does not displace it, and while both are present every collection
+# stays on the search path twice. pip reports the two distributions separately,
+# so this only matches the bundle.
+if "$ANSIBLE_ENV/bin/pip" show ansible >/dev/null 2>&1; then
+    echo "  removing the ansible bundle (superseded by ansible-core)"
+    "$ANSIBLE_ENV/bin/pip" uninstall -y ansible >/dev/null
+fi
 "$ANSIBLE_ENV/bin/pip" install --quiet --upgrade "$ANSIBLE_SPEC" "$ANSIBLE_LINT_SPEC"
 
 # The playbooks declare the collections they need (community.general,
