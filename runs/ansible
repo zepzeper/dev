@@ -16,7 +16,11 @@ ANSIBLE_REPO="${ANSIBLE_REPO:-$HOME/personal/ansible}"
 # Kept in step with $ANSIBLE_REPO/requirements.txt by hand. They are duplicated
 # rather than read from it so a machine without the playbooks checked out still
 # gets the same versions.
-ANSIBLE_SPEC="${ANSIBLE_SPEC:-ansible>=14,<15}"
+#
+# ansible-core rather than the `ansible` bundle: the bundle vendors ~100
+# collections into site-packages, which then collide with the galaxy-installed
+# ones below and with themselves through Fedora's lib64 -> lib symlink.
+ANSIBLE_SPEC="${ANSIBLE_SPEC:-ansible-core>=2.21,<2.22}"
 ANSIBLE_LINT_SPEC="${ANSIBLE_LINT_SPEC:-ansible-lint>=25,<27}"
 
 install_packages python3 python3-pip python3-venv
