@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Ansible control node, in its own venv rather than from the distro repos.
+#
+# Two reasons not to use install_packages here: Fedora 44 and noble ship
+# different ansible majors, and the ds10u playbooks in ~/personal/ansible pin
+# ansible>=14,<15 in their requirements.txt. That repo's Makefile already
+# expects the interpreter at ~/ansible-env/bin, so build exactly that.
+
+set -euo pipefail
+
+source "$(dirname "$0")/../lib/platform.sh"
+
+ANSIBLE_ENV="${ANSIBLE_ENV:-$HOME/ansible-env}"
+ANSIBLE_REPO="${ANSIBLE_REPO:-$HOME/personal/ansible}"
+
+# Kept in step with $ANSIBLE_REPO/requirements.txt by hand. They are duplicated
+# rather than read from it so a machine without the playbooks checked out still
+# gets the same versions.
+ANSIBLE_SPEC="${ANSIBLE_SPEC:-ansible>=14,<15}"
+ANSIBLE_LINT_SPEC="${ANSIBLE_LINT_SPEC:-ansible-lint>=25,<27}"
+
+install_packages python3 python3-pip python3-venv
+
+[[ -x "$ANSIBLE_ENV/bin/python" ]] || python3 -m venv "$ANSIBLE_ENV"
+
+"$ANSIBLE_ENV/bin/pip" install --quiet --upgrade pip
+"$ANSIBLE_ENV/bin/pip" install --quiet --upgrade "$ANSIBLE_SPEC" "$ANSIBLE_LINT_SPEC"
+
+# The playbooks declare the collections they need (community.general,
+# ansible.posix). Install them when the repo is here, and skip quietly when it
+# is not, so this still works on a machine that never runs them.
+if [[ -f "$ANSIBLE_REPO/requirements.yml" ]]; then
+    "$ANSIBLE_ENV/bin/ansible-galaxy" collection install \
+        -r "$ANSIBLE_REPO/requirements.yml"
+else
+    echo "  skip collections ($ANSIBLE_REPO/requirements.yml not found)"
+fi
+
+"$ANSIBLE_ENV/bin/ansible" --version | head -1
+"$ANSIBLE_ENV/bin/ansible-lint" --version | head -1
+
+# The playbooks cannot do anything without the vault password. It lives in
+# dev-secrets and lands at the path scripts/get-vault-password.sh already looks
+# for, so say plainly when it is missing rather than letting the first `make
+# lint` fail with a wall of decryption errors.
+VAULT_PASSWORD_FILE="${VAULT_PASSWORD_FILE:-$HOME/.config/ansible/krugten-vault-password}"
+
+if [[ -f "$VAULT_PASSWORD_FILE" ]]; then
+    echo "  vault password present"
+else
+    echo "  NOTE: no vault password at ${VAULT_PASSWORD_FILE/#$HOME/\~}"
+    echo "        run: dev-secrets unlock ansible-vault"
+fi

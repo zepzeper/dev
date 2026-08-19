@@ -56,6 +56,7 @@ pkg_name() {
         dnf:networkmanager-applet) echo "network-manager-applet" ;;
         dnf:networkmanager-openvpn) echo "NetworkManager-openvpn-gnome" ;;
         dnf:rfkill) echo "util-linux" ;; # Fedora never split it out
+        dnf:python3-venv) echo "" ;;     # ships inside python3-libs
         # Retired on Fedora 44, and the workstation runs Hyprland, whose session
         # brings its own agent - so there is nothing to install here.
         dnf:polkit-agent) echo "" ;;

@@ -18,6 +18,7 @@ path_add "$HOME/.local/go/bin"
 path_add "$HOME/.cargo/bin"
 path_add "$HOME/.local/scripts"
 path_add "$HOME/.local/bin"
+path_add "$HOME/ansible-env/bin"
 export PATH
 
 export EDITOR="nvim"
