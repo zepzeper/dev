@@ -49,6 +49,20 @@ else
     echo "  skip collections ($ANSIBLE_REPO/requirements.yml not found)"
 fi
 
+# The kubernetes.core.kustomize lookup renders the k8s/ tree on the control
+# node, so a kustomize (or kubectl) binary has to be here, not just on the
+# server. Installed alongside ansible because it is useless without it.
+KUSTOMIZE_VERSION="${KUSTOMIZE_VERSION:-5.4.3}"
+
+if ! command -v kustomize >/dev/null; then
+    echo "  installing kustomize $KUSTOMIZE_VERSION"
+    tmp="$(mktemp -d)"
+    curl -fsSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" |
+        tar xz -C "$tmp"
+    install -Dm755 "$tmp/kustomize" "$HOME/.local/bin/kustomize"
+    rm -rf "$tmp"
+fi
+
 "$ANSIBLE_ENV/bin/ansible" --version | head -1
 "$ANSIBLE_ENV/bin/ansible-lint" --version | head -1
 

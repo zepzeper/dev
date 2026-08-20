@@ -15,12 +15,21 @@ source "$(dirname "$0")/../lib/platform.sh"
 # Without one the login still works, it just prints a URL to open in a browser.
 AUTHKEY_FILE="${TS_AUTHKEY_FILE:-$HOME/.config/tailscale/authkey}"
 
-# ds10u advertises 192.168.1.0/24. Accepting it is what lets this machine reach
-# Pi-hole at 192.168.1.2 and the ingress at 192.168.1.3 while away from home -
-# the same addresses Pi-hole hands out on the LAN, so one answer works in both
-# places. On a machine physically on that LAN the directly-connected route wins
-# and traffic stays off the tunnel, which is the behaviour we want at home.
-TS_ACCEPT_ROUTES="${TS_ACCEPT_ROUTES:-true}"
+# Off, and this is not a preference - it is a correctness fix, verified on this
+# machine. ds10u advertises 192.168.1.0/24, and accepting it does NOT lose to
+# the directly-connected route the way you would expect. Tailscale installs
+#
+#   ip rule  5270: from all lookup 52     (before 32766: lookup main)
+#   table 52: 192.168.1.0/24 dev tailscale0
+#
+# so every packet to the home LAN is pulled into the tunnel even while sitting
+# on that LAN. The symptom is a machine that reaches the internet fine but
+# cannot ping its own router or any local host.
+#
+# Reaching home while away is handled by the exit node instead (ds10u advertises
+# one), which covers 192.168.1.0/24 via its default route without capturing the
+# LAN when you are on it.
+TS_ACCEPT_ROUTES="${TS_ACCEPT_ROUTES:-false}"
 
 add_repo() {
     case "$OS" in
