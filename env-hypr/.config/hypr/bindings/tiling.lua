@@ -47,7 +47,7 @@ for i = 1, 10 do
 end
 
 -- Window movement
-hl.bind("ALT + mouse:272",   hl.dsp.window.drag(),   { mouse = true })
+-- hl.bind("ALT + mouse:272",   hl.dsp.window.drag(),   { mouse = true })
 hl.bind("SUPER + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
 -- Manage floating
