@@ -13,6 +13,7 @@ font pango:Iosevka Term 10
 # and monitor-watch holds a lock so the reload does not stack up watchers.
 exec_always --no-startup-id ~/.config/i3/monitor
 exec_always --no-startup-id ~/.config/i3/monitor-watch
+exec_always --no-startup-id flameshot 
 
 # Hyprland uses ALT+drag to move and SUPER+drag to resize; i3 has one modifier
 # for both, so ALT matches the more common of the two.
