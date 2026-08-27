@@ -1,55 +1,68 @@
 #!/usr/bin/env bash
-# The i3 session for the laptop.
+# The i3 session, on X11.
+#
+# Both machines can run it: the work laptop has nothing else, and the Fedora
+# workstation keeps its Hyprland session installed alongside - which of the two
+# a machine actually uses is the stow profile's business (./dev-env profile),
+# not this installer's.
 
 set -euo pipefail
 
 source "$(dirname "$0")/../lib/platform.sh"
 
-case "$OS" in
-    ubuntu | debian)
-        # i3 is the metapackage; i3-wm is the compositor alone. Installing the
-        # metapackage pulls i3-wm in, so the old "try one, then the other" pair
-        # of unguarded `apt install` calls was redundant - and neither was
-        # checked, so a failure went unnoticed.
-        # A cloud image has no X server at all, so i3 would install with nothing
-        # to run on. xinit lets a session start straight from a TTY, which
-        # avoids pulling a whole display manager into a test guest.
-        install_packages \
-            xorg \
-            xinit \
-            x11-xserver-utils \
-            i3 \
-            i3status \
-            rofi \
-            dmenu \
-            xss-lock \
-            jq \
-            libnotify-bin \
-            xdg-utils \
-            polkit-agent
+# Canonical names; lib/platform.sh maps the ones that differ per distro. i3 is
+# the metapackage on Ubuntu and pulls i3-wm in, so naming it once is enough.
+#
+# A cloud image has no X server at all, so i3 would install with nothing to run
+# on. xorg plus xinit lets a session start straight from a TTY, which avoids
+# pulling a whole display manager into a test guest; where one is already
+# installed - gdm on the workstation - it picks up i3.desktop by itself.
+#
+# i3lock and flameshot are bound in the i3 config ($mod+Ctrl+l, CTRL+SHIFT+P)
+# but were never installed by anything, so both keys did nothing on a machine
+# that had not had them added by hand.
+install_packages \
+    xorg \
+    xinit \
+    x11-xserver-utils \
+    i3 \
+    i3status \
+    i3lock \
+    rofi \
+    dmenu \
+    xss-lock \
+    flameshot \
+    jq \
+    libnotify \
+    xdg-utils \
+    polkit-agent
 
-        # Closing the lid at the desk must not suspend the machine. logind's
-        # "docked" test counts *external* connectors only - it skips eDP/LVDS -
-        # so one monitor plugged in is enough to select HandleLidSwitchDocked,
-        # and the bare HandleLidSwitch still suspends the undocked laptop on
-        # the way into a bag. Doing it here rather than in a dotfile because
-        # the file is root-owned and outside stow's reach.
-        sudo install -d -m 755 /etc/systemd/logind.conf.d
-        sudo tee /etc/systemd/logind.conf.d/10-lid.conf >/dev/null <<'LID'
+# Closing the lid at the desk must not suspend the machine. logind's "docked"
+# test counts *external* connectors only - it skips eDP/LVDS - so one monitor
+# plugged in is enough to select HandleLidSwitchDocked, and the bare
+# HandleLidSwitch still suspends the undocked laptop on the way into a bag.
+# Doing it here rather than in a dotfile because the file is root-owned and
+# outside stow's reach.
+#
+# Guarded on the machine actually having a lid: the workstation has none, and
+# writing a drop-in about a switch that does not exist is noise - doctor would
+# then have to check for a file that means nothing there.
+if compgen -G '/proc/acpi/button/lid/*' >/dev/null; then
+    sudo install -d -m 755 /etc/systemd/logind.conf.d
+    sudo tee /etc/systemd/logind.conf.d/10-lid.conf >/dev/null <<'LID'
 [Login]
 HandleLidSwitch=suspend
 HandleLidSwitchExternalPower=suspend
 HandleLidSwitchDocked=ignore
 LID
 
-        # Deliberately not restarting logind: it terminates the running
-        # session on the spot. The drop-in applies at the next boot.
-        echo "lid drop-in written; it takes effect after a reboot"
-        ;;
+    # Deliberately not restarting logind: it terminates the running session on
+    # the spot. The drop-in applies at the next boot.
+    echo "lid drop-in written; it takes effect after a reboot"
+else
+    echo "no lid on this machine; skipping the logind drop-in"
+fi
 
-    fedora)
-        # The workstation runs Hyprland - see runs/hyprland.
-        echo "i3 is not provisioned on Fedora; this machine uses Hyprland."
-        exit 0
-        ;;
-esac
+echo
+echo "Installed. Pin the session profile if this machine also has another:"
+echo "  ./dev-env profile i3 && ./dev-env link"

@@ -98,6 +98,11 @@ check_mason() {
 check_lid() {
     [[ "$(detect_profile)" == "i3" ]] || return 0
 
+    # The workstation runs i3 too and has no lid at all, so there is nothing
+    # for the drop-in to say there - reporting it missing would be a failure
+    # that cannot be fixed and does not matter.
+    compgen -G '/proc/acpi/button/lid/*' >/dev/null || return 0
+
     local conf=/etc/systemd/logind.conf.d/10-lid.conf
 
     if [[ ! -f "$conf" ]]; then
@@ -110,6 +115,28 @@ check_lid() {
         hint "./dev-env i3 rewrites it"
     fi
 
+    return 0
+}
+
+# A bare i3 session starts no polkit agent, and without one anything needing
+# admin authorisation fails with no dialog and no visible reason - the failure
+# mode the VPN password had. The i3 config execs whichever of the known agents
+# is present, so the check is the same list.
+check_polkit() {
+    [[ "$(detect_profile)" == "i3" ]] || return 0
+
+    local a
+    for a in /usr/libexec/polkit-mate-authentication-agent-1 \
+        /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1 \
+        /usr/libexec/polkit-gnome-authentication-agent-1; do
+        [[ -x "$a" ]] && {
+            ok "polkit agent: ${a##*/}"
+            return 0
+        }
+    done
+
+    bad "no polkit agent installed - admin prompts will fail silently"
+    hint "./dev-env i3"
     return 0
 }
 
@@ -305,6 +332,7 @@ do_doctor() {
     info "tooling"
     check_stow
     check_lid
+    check_polkit
     check_terminal
     check_mason
     info "PATH"

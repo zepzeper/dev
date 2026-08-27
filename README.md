@@ -7,8 +7,12 @@ Targets two machines:
 
 | Machine | Distro | Session |
 | --- | --- | --- |
-| Workstation | Fedora | Hyprland (Wayland) |
+| Workstation | Fedora | i3 (X11), with Hyprland (Wayland) still installed |
 | Work laptop | Ubuntu | i3 (X11) |
+
+The workstation has both sessions provisioned and picks one at the gdm login
+screen; the stow profile decides which set of configs is linked, so switching
+is `./dev-env profile <hypr\|i3> && ./dev-env link`, then log out and back in.
 
 ## Layout
 
@@ -28,9 +32,11 @@ Each `env-*` is a literal `$HOME` mirror, so linking is just `stow`. A file at
 
 ## Profiles
 
-`env-common` is stowed everywhere; exactly one session profile joins it. The
-laptop runs i3 on X11 and must not receive Hyprland configs or the `launch-*`
-scripts, all of which shell out to `hyprctl` or `uwsm-app` and would fail there.
+`env-common` is stowed everywhere; exactly one session profile joins it. A
+machine running i3 on X11 must not receive Hyprland configs or the `launch-*`
+scripts, all of which shell out to `hyprctl` or `uwsm-app` and would fail there
+— so on the workstation, where both sessions are installed, the profile has to
+be pinned rather than detected.
 
 ```sh
 ./dev-env profile            # what this machine resolved to
@@ -39,7 +45,9 @@ scripts, all of which shell out to `hyprctl` or `uwsm-app` and would fail there.
 
 Detection order: `$DEV_ENV_PROFILE`, then `.dev-profile`, then whichever of
 `hyprctl` / `i3` is installed. On a bare machine neither exists yet, so `link`
-stows `env-common` only — re-run it after `runs/desktop`.
+stows `env-common` only — re-run it after `runs/desktop`. The fallback checks
+`hyprctl` first, so a machine with both installed resolves to `hypr` until
+`.dev-profile` says otherwise.
 
 ### zsh
 
@@ -55,7 +63,9 @@ first.
 ### Displays (i3)
 
 The laptop lives on an external monitor with the lid shut, and only opens for
-meetings, so the lid is the switch that picks the layout:
+meetings, so the lid is the switch that picks the layout (on a machine with no
+lid, such as the workstation, `monitor` just enables every connected output
+left to right and `runs/i3` skips the logind drop-in below):
 
 | Lid | External | Result |
 | --- | --- | --- |
@@ -132,8 +142,11 @@ two-line revert to `nmtui connect`.
 Both `wlctl` and the VPN toggle need a **polkit authentication agent**, which
 GNOME's session starts and a bare i3 session does not. Without one, anything
 needing admin authorisation — deleting a saved profile, say — fails with no
-dialog and no visible reason, exactly like the VPN password below. The i3 config
-starts `polkit-gnome-authentication-agent-1`; `runs/i3` installs it.
+dialog and no visible reason, exactly like the VPN password below. `runs/i3`
+installs one and the i3 config execs whichever is present: Fedora retired
+`polkit-gnome`, so there it is `mate-polkit` — the same GTK3 agent, without any
+MATE desktop behind it — while Ubuntu still has `polkit-gnome`. `doctor` fails
+if neither binary is on the machine.
 
 The VPN is an OpenVPN profile NetworkManager owns, so `launch-vpn` drives
 `nmcli` rather than `openvpn(8)` — NetworkManager is what installs the routes,

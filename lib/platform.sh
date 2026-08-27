@@ -57,9 +57,18 @@ pkg_name() {
         dnf:networkmanager-openvpn) echo "NetworkManager-openvpn-gnome" ;;
         dnf:rfkill) echo "util-linux" ;; # Fedora never split it out
         dnf:python3-venv) echo "" ;;     # ships inside python3-libs
-        # Retired on Fedora 44, and the workstation runs Hyprland, whose session
-        # brings its own agent - so there is nothing to install here.
-        dnf:polkit-agent) echo "" ;;
+        # X11, for the i3 session. Fedora splits what Ubuntu ships as the
+        # xorg/xinit/x11-xserver-utils trio, and retired xorg-x11-server-utils
+        # outright - xrandr, the only tool out of it this repo calls (i3's
+        # monitor and monitor-watch), is a package of its own now.
+        dnf:xorg) echo "xorg-x11-server-Xorg" ;;
+        dnf:xinit) echo "xorg-x11-xinit" ;;
+        dnf:x11-xserver-utils) echo "xrandr" ;;
+        # polkit-gnome is retired on Fedora 44, and the Hyprland session brings
+        # its own agent - but i3 does not, so Fedora needs one too. mate-polkit
+        # is the same GTK3 agent under another name: it pulls gtk3 and
+        # appindicator, not MATE. The i3 config execs its libexec path.
+        dnf:polkit-agent) echo "mate-polkit" ;;
 
         # Ubuntu. Verified on noble (24.04) in a dev-vm guest.
         apt:go) echo "golang-go" ;;

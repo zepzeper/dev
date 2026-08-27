@@ -1,5 +1,6 @@
 # i3, mirroring the Hyprland bindings in env-hypr so muscle memory carries
-# between the workstation and the laptop.
+# between the two sessions - the laptop has only this one, the workstation can
+# log into either.
 #
 # Where Hyprland has no i3 equivalent the binding is left commented with the
 # reason, rather than silently dropped.
@@ -160,6 +161,7 @@ exec --no-startup-id nm-applet
 # A polkit authentication agent. GNOME's session starts one; a bare i3 session
 # does not, so anything needing admin authorisation - wlctl deleting a saved
 # profile, for instance - fails with no dialog and no visible reason, the same
-# way the VPN password did. env-i3 is Ubuntu-only, so that path comes first;
-# the libexec one is where every other distro puts it.
-exec --no-startup-id sh -c 'for a in /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1 /usr/libexec/polkit-gnome-authentication-agent-1; do [ -x "$a" ] && exec "$a"; done'
+# way the VPN password did. Which binary that is depends on the distro: Fedora
+# retired polkit-gnome and runs/i3 installs mate-polkit there, Ubuntu still has
+# polkit-gnome under /usr/lib. Try each and exec the first that exists.
+exec --no-startup-id sh -c 'for a in /usr/libexec/polkit-mate-authentication-agent-1 /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1 /usr/libexec/polkit-gnome-authentication-agent-1; do [ -x "$a" ] && exec "$a"; done'
