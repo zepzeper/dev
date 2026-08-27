@@ -25,6 +25,7 @@ install_packages \
     xorg \
     xinit \
     x11-xserver-utils \
+    xset \
     i3 \
     i3status \
     i3lock \
@@ -36,6 +37,41 @@ install_packages \
     libnotify \
     xdg-utils \
     polkit-agent
+
+# flameshot 14 asks the freedesktop screenshot portal even on X11, and no
+# portal backend can serve a screenshot in an i3 session: the gtk one delegates
+# to org.gnome.Shell.Screenshot and the hyprland one needs Hyprland. So
+# CTRL+SHIFT+P hung for 30 seconds and reported "Unable to capture screen".
+#
+# Flameshot ships the escape hatch for exactly this - its own help text names
+# i3 - but only as a checkbox in its GUI, so set the key it writes. The laptop
+# never needed it: Ubuntu ships flameshot 12, which captures X11 natively and
+# ignores this key, so setting it on both machines is harmless.
+#
+# Not a stowed dotfile: flameshot rewrites this file through QSettings, which
+# replaces it rather than editing in place and would leave the symlink dangling
+# the first time any other setting changed.
+FLAMESHOT_INI="$HOME/.config/flameshot/flameshot.ini"
+FLAMESHOT_KEY="useX11LegacyScreenshot"
+
+if [[ ! -f "$FLAMESHOT_INI" ]]; then
+    mkdir -p "$(dirname "$FLAMESHOT_INI")"
+    printf '[General]\n%s=true\n' "$FLAMESHOT_KEY" >"$FLAMESHOT_INI"
+    echo "flameshot: created $FLAMESHOT_INI with $FLAMESHOT_KEY=true"
+elif grep -q "^$FLAMESHOT_KEY=true$" "$FLAMESHOT_INI"; then
+    echo "flameshot: $FLAMESHOT_KEY already true"
+elif grep -q "^$FLAMESHOT_KEY=" "$FLAMESHOT_INI"; then
+    sed -i "s|^$FLAMESHOT_KEY=.*|$FLAMESHOT_KEY=true|" "$FLAMESHOT_INI"
+    echo "flameshot: set $FLAMESHOT_KEY=true"
+elif grep -q '^\[General\]' "$FLAMESHOT_INI"; then
+    # Under the existing [General], not appended to the end of the file, where
+    # it would land inside whatever section happens to come last.
+    sed -i "0,/^\[General\]/s||[General]\n$FLAMESHOT_KEY=true|" "$FLAMESHOT_INI"
+    echo "flameshot: added $FLAMESHOT_KEY=true"
+else
+    printf '[General]\n%s=true\n' "$FLAMESHOT_KEY" >>"$FLAMESHOT_INI"
+    echo "flameshot: added [General] $FLAMESHOT_KEY=true"
+fi
 
 # Closing the lid at the desk must not suspend the machine. logind's "docked"
 # test counts *external* connectors only - it skips eDP/LVDS - so one monitor

@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# Machine-wide environment variables - the defaults that belong to the machine
+# rather than to an account.
+#
+# These were in env-common/.config/personal/env, which is a login-shell file:
+# fine for a terminal, wrong for a desktop. A session started by gdm, a systemd
+# user service, and anything D-Bus activates all read none of it, so the cursor
+# theme and the Qt platform theme applied to some processes and not others
+# depending on how they happened to be started.
+#
+# Two files, because the two things that read system variables read different
+# ones - and both are needed for full coverage:
+#
+#   /etc/environment                  pam_env, at login. Covers the session and
+#                                     every process descended from it: gdm's X
+#                                     session, i3, and everything i3 spawns.
+#   /etc/environment.d/90-dev-env.conf  the systemd user manager. Covers user
+#                                     services and D-Bus activated programs -
+#                                     xdg-desktop-portal and its backends among
+#                                     them - which inherit nothing from a login.
+#
+# Root-owned and outside stow's reach, the same as the logind lid drop-in, so
+# `link` cannot restore them and doctor checks them instead.
+
+set -euo pipefail
+
+source "$(dirname "$0")/../lib/platform.sh"
+
+# The one list. Values must not contain spaces: pam_env would need them quoted
+# and systemd would not, so a value that needs quoting cannot be shared.
+SYSTEM_VARS=(
+    # Dark mode, as far as a variable can carry it. GTK_THEME is what forces
+    # GTK3 and GTK4 dark without a settings daemon; libadwaita apps ignore it
+    # and follow the portal instead, which is why the dconf key in runs/theme
+    # is still the primary and this is the floor under it.
+    "GTK_THEME=Adwaita:dark"
+
+    # Qt has no desktop-wide colour preference of its own. qt6ct is the
+    # platform theme, kvantum the style it draws with; see
+    # env-common/.config/{qt6ct,Kvantum}.
+    "QT_QPA_PLATFORMTHEME=qt6ct"
+    "QT_STYLE_OVERRIDE=kvantum"
+
+    # Cursor. X11 reads these at client startup, so a process that never saw
+    # them draws the system default cursor over half the screen.
+    "XCURSOR_THEME=Bibata-Modern-Classic"
+    "XCURSOR_SIZE=24"
+)
+
+BEGIN_MARK="# >>> dev-env (runs/env) - do not edit inside this block >>>"
+END_MARK="# <<< dev-env <<<"
+
+# /etc/environment is not ours alone - Ubuntu ships a PATH in it - so the block
+# is delimited and rewritten in place rather than the file being replaced.
+strip_block() {
+    [[ -f "$1" ]] || return 0
+
+    awk -v b="$BEGIN_MARK" -v e="$END_MARK" '
+        $0 == b { skip = 1; next }
+        $0 == e { skip = 0; next }
+        !skip   { print }
+    ' "$1"
+}
+
+# Only write when the result differs, so a re-run is silent and the file keeps
+# its mtime - and so sudo is not invoked for nothing.
+write_if_changed() {
+    local file="$1" content="$2"
+
+    if [[ -f "$file" ]] && [[ "$(cat "$file")" == "$content" ]]; then
+        echo "  $file already current"
+        return 0
+    fi
+
+    echo "  writing $file"
+    sudo install -d -m 755 "$(dirname "$file")"
+    printf '%s\n' "$content" | sudo tee "$file" >/dev/null
+    sudo chmod 644 "$file"
+}
+
+echo "system variables:"
+printf '  %s\n' "${SYSTEM_VARS[@]}"
+echo
+
+# pam_env: keep whatever else the file holds, replace only our block. The
+# trailing sed drops the blank lines a removed block leaves behind, so
+# re-running does not walk the block down the file one line at a time.
+etc_environment="$(
+    {
+        strip_block /etc/environment | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}'
+        printf '%s\n' "$BEGIN_MARK"
+        printf '%s\n' "${SYSTEM_VARS[@]}"
+        printf '%s\n' "$END_MARK"
+    }
+)"
+write_if_changed /etc/environment "$etc_environment"
+
+# systemd: the whole file is ours, so no markers are needed.
+environment_d="$(
+    {
+        echo "# Written by dev-env (runs/env). Edit the list there, not here."
+        printf '%s\n' "${SYSTEM_VARS[@]}"
+    }
+)"
+write_if_changed /etc/environment.d/90-dev-env.conf "$environment_d"
+
+echo
+echo "Both are read at login. Nothing already running picks them up -"
+echo "log out and back in, or for a quick check of one process:"
+echo "  systemctl --user show-environment | grep GTK_THEME"

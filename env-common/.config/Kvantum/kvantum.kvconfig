@@ -1,0 +1,4 @@
+# KvGnomeDark of the themes kvantum-data ships: it is the one drawn to match
+# Adwaita, so a Qt app next to a GTK one does not read as a different desktop.
+[General]
+theme=KvGnomeDark

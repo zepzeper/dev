@@ -59,8 +59,10 @@ pkg_name() {
         dnf:python3-venv) echo "" ;;     # ships inside python3-libs
         # X11, for the i3 session. Fedora splits what Ubuntu ships as the
         # xorg/xinit/x11-xserver-utils trio, and retired xorg-x11-server-utils
-        # outright - xrandr, the only tool out of it this repo calls (i3's
-        # monitor and monitor-watch), is a package of its own now.
+        # outright - so the two tools out of it this repo calls are separate
+        # packages there: xrandr (i3's monitor and monitor-watch) and xset (the
+        # screensaver timeout xss-lock waits on), the latter named the same on
+        # both distros and so left to the fallback.
         dnf:xorg) echo "xorg-x11-server-Xorg" ;;
         dnf:xinit) echo "xorg-x11-xinit" ;;
         dnf:x11-xserver-utils) echo "xrandr" ;;
@@ -91,6 +93,11 @@ pkg_name() {
         apt:pipewire-devel) echo "libpipewire-0.3-dev" ;;
         apt:clang-devel) echo "libclang-dev" ;; # bindgen needs libclang
         apt:polkit-agent) echo "policykit-1-gnome" ;;
+        # Checked against noble's x11-xserver-utils file list, which carries
+        # both /usr/bin/xset and /usr/bin/xrandr - so the canonical xset the i3
+        # installer names is already covered there and must not be installed
+        # again under a name apt does not have.
+        apt:xset) echo "" ;;
 
         *) echo "$p" ;;
     esac

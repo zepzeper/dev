@@ -9,12 +9,23 @@ set $mod Mod4
 
 font pango:Iosevka Term 10
 
+# Hand the session over to systemd before anything else starts.
+#
+# Two separate jobs, in this order and in one shell so they cannot race: the
+# user manager and the D-Bus activation environment inherit nothing from an X
+# session by themselves - gdm exports DISPLAY and XAUTHORITY but not
+# XDG_CURRENT_DESKTOP, which is what picks the portal backend - and
+# graphical-session.target is not reached until something starts it. Without
+# both, xdg-desktop-portal never runs and every app that asks the desktop
+# whether it is dark gets no answer. See .config/systemd/user/i3-session.target.
+exec_always --no-startup-id sh -c 'dbus-update-activation-environment --systemd DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE; systemctl --user start i3-session.target'
+
 # monitor applies the layout once, now; monitor-watch keeps applying it as the
 # lid and the cable move. Both are exec_always so an i3 reload revives them,
 # and monitor-watch holds a lock so the reload does not stack up watchers.
 exec_always --no-startup-id ~/.config/i3/monitor
 exec_always --no-startup-id ~/.config/i3/monitor-watch
-exec_always --no-startup-id flameshot 
+exec_always --no-startup-id /usr/bin/flameshot 
 
 # Hyprland uses ALT+drag to move and SUPER+drag to resize; i3 has one modifier
 # for both, so ALT matches the more common of the two.
@@ -62,11 +73,48 @@ bindsym $mod+Shift+d exec --no-startup-id xdg-open "https://excalidraw.com/"
 bindsym $mod+Shift+x exec --no-startup-id xdg-open "https://x.com/"
 bindsym $mod+Shift+m exec --no-startup-id xdg-open "https://mastodon.social/home/"
 
-bindsym $mod+Ctrl+l exec --no-startup-id i3lock -c 161521
+bindsym $mod+Ctrl+l exec --no-startup-id loginctl lock-session
 
 # Re-apply the display layout by hand, for the monitor that comes back in a
 # state xrandr misreported.
 bindsym $mod+Shift+s exec --no-startup-id ~/.config/i3/monitor
+
+# ------------------------------------------------------------------
+# Locking
+# ------------------------------------------------------------------
+# One locker, three ways into it: the keybinding above, the idle timeout, and
+# logind on its way to suspend. xss-lock is what unifies them - it watches both
+# the X screensaver timer and logind's Lock and PrepareForSleep signals - so
+# there is a single i3lock to configure rather than three.
+#
+# --transfer-sleep-lock hands i3lock logind's inhibitor fd, which is what makes
+# the lock appear *before* the machine suspends instead of racing it; without
+# it the desktop can be briefly visible on resume. It is also what covers the
+# laptop's lid: runs/i3 leaves HandleLidSwitch=suspend, and the suspend is what
+# triggers the lock.
+#
+# -n (nofork) is required rather than cosmetic: xss-lock tracks the locker as
+# its own child, and a locker that forks away looks like it exited at once, so
+# xss-lock would consider the screen unlocked while i3lock is still up.
+set $locker i3lock -n -c 161521 -e -f
+
+# pkill first: this is exec_always, so every i3 restart would otherwise leave
+# another xss-lock behind, and two of them race to lock the same screen.
+#
+# Worth knowing when testing any of the exec_always lines above: i3 re-runs
+# them on *restart* ($mod+Ctrl+r), not on reload ($mod+Shift+c). A reload
+# re-reads the config and changes bindings, and looks like it did nothing at
+# all here.
+exec_always --no-startup-id sh -c 'pkill -x xss-lock; exec xss-lock --transfer-sleep-lock -- $locker'
+
+# The idle timer xss-lock waits on is X's screensaver, not DPMS: `xset s
+# <timeout> <cycle>`, so this locks after 10 minutes idle. The cycle only
+# matters to screensavers that redraw, which a blank one does not.
+exec_always --no-startup-id xset s 600 600
+
+# Power the panel down five minutes after that, rather than leaving a 4K screen
+# lit all night. standby and suspend are disabled (0); only "off" is set.
+exec_always --no-startup-id xset dpms 0 0 900
 
 # ------------------------------------------------------------------
 # Windows
@@ -124,10 +172,6 @@ bindsym $mod+Shift+8 move container to workspace number 8
 bindsym $mod+Shift+9 move container to workspace number 9
 bindsym $mod+Shift+0 move container to workspace number 10
 
-# Matches Hyprland's ALT+SHIFT+H/L
-bindsym Mod1+Shift+h move container to workspace prev
-bindsym Mod1+Shift+l move container to workspace next
-
 # ------------------------------------------------------------------
 # Screenshot / system
 # ------------------------------------------------------------------
@@ -165,3 +209,4 @@ exec --no-startup-id nm-applet
 # retired polkit-gnome and runs/i3 installs mate-polkit there, Ubuntu still has
 # polkit-gnome under /usr/lib. Try each and exec the first that exists.
 exec --no-startup-id sh -c 'for a in /usr/libexec/polkit-mate-authentication-agent-1 /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1 /usr/libexec/polkit-gnome-authentication-agent-1; do [ -x "$a" ] && exec "$a"; done'
+

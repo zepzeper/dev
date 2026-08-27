@@ -1,18 +1,76 @@
 #!/usr/bin/env bash
-# Cursor theme and Qt styling - what XCURSOR_THEME and QT_STYLE_OVERRIDE name.
-# Both were set in envs.lua while neither was installed, so the cursor fell
-# back to the system default and Qt apps warned about a missing style.
+# The desktop-wide look: dark mode, cursor theme and Qt styling.
+#
+# Cursor and Qt style were named by envs.lua while neither was installed, so the
+# cursor fell back to the system default and Qt apps warned about a missing
+# style. Dark mode is here for a different reason: it lives in dconf, a binary
+# database stow cannot manage, so it is the one part of the theme that has to be
+# applied rather than linked. Everything else is a tracked file - see
+# env-common/.config/{gtk-3.0,gtk-4.0,qt6ct,Kvantum}.
 
 set -euo pipefail
 
 source "$(dirname "$0")/../lib/platform.sh"
 source "$(dirname "$0")/../lib/release.sh"
 
-# Kvantum reads QT_STYLE_OVERRIDE; qt6ct is what most Qt6 apps consult.
-install_packages kvantum qt6ct || true
-
+# Named before the gsettings block: the cursor is one of the values it applies.
 CURSOR="Bibata-Modern-Classic"
 CURSOR_DIR="$HOME/.local/share/icons/$CURSOR"
+
+# Kvantum reads QT_STYLE_OVERRIDE; qt6ct is what most Qt6 apps consult.
+#
+# The portal pair is what turns the dconf key below into an answer the rest of
+# the desktop can hear: xdg-desktop-portal serves org.freedesktop.appearance,
+# and only the gtk backend reads the colour scheme out of dconf. Firefox,
+# Chromium, Electron apps, GTK4 and nvim's auto-dark-mode all ask it rather than
+# reading any config file of ours. gsettings-desktop-schemas carries the schema
+# the key belongs to; without it `gsettings set` fails outright.
+install_packages \
+    kvantum \
+    qt6ct \
+    xdg-desktop-portal \
+    xdg-desktop-portal-gtk \
+    gsettings-desktop-schemas || true
+
+# Dark mode, and the theme names that go with it. Idempotent: gsettings writes
+# only when the value differs, and this runs on every ./dev-env theme.
+#
+# org.gnome.desktop.interface despite there being no GNOME here - the schema is
+# the de-facto freedesktop one, and the Settings portal is specified to report
+# exactly this key as org.freedesktop.appearance color-scheme.
+apply_setting() {
+    local key="$1" value="$2" current
+
+    current="$(gsettings get org.gnome.desktop.interface "$key" 2>/dev/null || true)"
+
+    # gsettings prints a string quoted and a number with its type in front
+    # ("'Adwaita'", "uint32 24"); comparing against either raw would report a
+    # change on every run and rewrite the key for nothing.
+    current="${current#uint32 }"
+    current="${current//\'/}"
+
+    if [[ "$current" == "$value" ]]; then
+        echo "  $key already $value"
+        return 0
+    fi
+
+    echo "  $key: ${current:-unset} -> $value"
+    gsettings set org.gnome.desktop.interface "$key" "$value"
+}
+
+if command -v gsettings >/dev/null; then
+    echo "desktop settings:"
+    # prefer-dark is a preference apps may honour; "default" would leave each
+    # app to guess. gtk-theme stays Adwaita - the dark variant is the
+    # prefer-dark flag, not a separate theme name (see the gtk-3.0 settings).
+    apply_setting color-scheme prefer-dark
+    apply_setting gtk-theme Adwaita
+    apply_setting icon-theme Adwaita
+    apply_setting cursor-theme "$CURSOR"
+    apply_setting cursor-size 24
+else
+    echo "gsettings not found - skipping the dconf half of the theme" >&2
+fi
 
 if [[ -d "$CURSOR_DIR" ]]; then
     echo "$CURSOR already installed"

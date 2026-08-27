@@ -140,6 +140,148 @@ check_polkit() {
     return 0
 }
 
+# xss-lock is the whole locking story in one process: idle, suspend and the
+# keybinding all reach i3lock through it. When it is not running the screen
+# simply never locks - $mod+Ctrl+l goes to logind and logind finds nobody
+# listening - and nothing anywhere says so, which is the worst way for a lock
+# to fail.
+check_lock() {
+    [[ "$(detect_profile)" == "i3" ]] || return 0
+    [[ -n "${DISPLAY:-}" ]] || return 0
+
+    if ! pgrep -x xss-lock >/dev/null; then
+        bad "xss-lock is not running - nothing locks this screen"
+        hint "restart i3 (\$mod+Ctrl+r) - a reload does not re-run exec_always"
+        return 0
+    fi
+
+    ok "xss-lock running (idle, suspend and \$mod+Ctrl+l)"
+
+    # xss-lock only learns about idle from the X screensaver timer, which is
+    # off by default - so it can be running and still never fire on idle.
+    local timeout
+    # || true, not just 2>/dev/null: with pipefail set, a missing xset makes the
+    # whole pipeline non-zero and the command substitution takes doctor down
+    # with it - which is exactly the machine this check exists for.
+    timeout="$(xset q 2>/dev/null | awk '/timeout:/ { print $2; exit }' || true)"
+
+    if [[ -z "$timeout" ]]; then
+        bad "xset is missing - the idle timeout was never set"
+        hint "./dev-env i3"
+    elif [[ "$timeout" == "0" ]]; then
+        bad "screensaver timeout is 0 - the screen locks on suspend but never on idle"
+        hint "restart i3 (\$mod+Ctrl+r)"
+    else
+        ok "idle lock after ${timeout}s"
+    fi
+
+    return 0
+}
+
+# flameshot's portal bypass. It is a key inside a file flameshot itself
+# rewrites, so it cannot be stowed and nothing but this notices when it is lost
+# - and the symptom is a screenshot key that appears to do nothing for 30
+# seconds before failing.
+check_flameshot() {
+    [[ "$(detect_profile)" == "i3" ]] || return 0
+    command -v flameshot >/dev/null || return 0
+
+    local ini="$HOME/.config/flameshot/flameshot.ini"
+
+    if grep -qx 'useX11LegacyScreenshot=true' "$ini" 2>/dev/null; then
+        ok "flameshot bypasses the screenshot portal"
+    else
+        bad "flameshot will ask the screenshot portal - nothing serves it on i3"
+        hint "./dev-env i3"
+    fi
+
+    return 0
+}
+
+# The machine-wide variables runs/env writes. Root-owned and outside stow, so
+# `link` cannot restore them - and because they are read only at login, the
+# file being right says nothing about the running session having them. Both are
+# checked: one catches a machine that never ran the installer, the other a
+# session that predates it.
+check_system_env() {
+    local file=/etc/environment
+
+    if grep -q '^# >>> dev-env' "$file" 2>/dev/null; then
+        ok "system variables written to $file"
+    else
+        bad "no dev-env block in $file - theme variables are unset machine-wide"
+        hint "./dev-env env"
+        return 0
+    fi
+
+    # Only meaningful inside a session that would have picked them up.
+    [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] || return 0
+
+    if [[ -n "${GTK_THEME:-}" ]]; then
+        ok "session has them: GTK_THEME=$GTK_THEME"
+    else
+        bad "this session has no GTK_THEME - it predates ./dev-env env"
+        hint "log out and back in"
+    fi
+
+    return 0
+}
+
+# Dark mode is half tracked file, half dconf key, and only the file half is
+# restored by `link`. The dconf half is what the portal reports to Firefox,
+# Electron, GTK4 and nvim's auto-dark-mode, so when it drifts - a GNOME session
+# logged into once is enough - those apps go light while the GTK3 ones stay
+# dark, which reads as an app bug rather than a setting.
+check_theme() {
+    command -v gsettings >/dev/null || return 0
+
+    local scheme
+    scheme="$(gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null || true)"
+
+    case "$scheme" in
+        "'prefer-dark'") ok "color scheme: prefer-dark" ;;
+        "")
+            bad "color-scheme key unreadable - gsettings-desktop-schemas missing?"
+            hint "./dev-env theme"
+            ;;
+        *)
+            bad "color scheme is $scheme, not 'prefer-dark'"
+            hint "./dev-env theme"
+            ;;
+    esac
+
+    # dconf is only where the preference is stored; the Settings portal is what
+    # apps read it through, and under i3 that runs only because
+    # i3-session.target brings graphical-session.target up. Checked separately
+    # because the two fail apart: the key can be perfect while every browser
+    # still renders light.
+    #
+    # Skipped outside a graphical session - over ssh there is no portal to ask
+    # and its absence means nothing.
+    [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] || return 0
+    command -v gdbus >/dev/null || return 0
+
+    local reported
+    reported="$(gdbus call --session --dest org.freedesktop.portal.Desktop \
+        --object-path /org/freedesktop/portal/desktop \
+        --method org.freedesktop.portal.Settings.ReadOne \
+        org.freedesktop.appearance color-scheme 2>/dev/null || true)"
+
+    case "$reported" in
+        *"uint32 1"*) ok "settings portal reports: dark" ;;
+        "")
+            bad "the settings portal is not answering - apps fall back to light"
+            hint "systemctl --user start i3-session.target"
+            ;;
+        *)
+            bad "the settings portal reports $reported, not dark (uint32 1)"
+            hint "./dev-env theme"
+            ;;
+    esac
+
+    return 0
+}
+
 # env-hypr's launch-tui hands the terminal choice to xdg-terminal-exec so that
 # --app-id lands on whichever flag that terminal uses. Without a
 # xdg-terminals.list the choice comes from scanning desktop entries, and any
@@ -333,6 +475,10 @@ do_doctor() {
     check_stow
     check_lid
     check_polkit
+    check_lock
+    check_flameshot
+    check_system_env
+    check_theme
     check_terminal
     check_mason
     info "PATH"

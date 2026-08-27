@@ -27,8 +27,8 @@ export GOPATH="$HOME/.local/go"
 export N_PREFIX="$HOME/.local/n"
 export DEV_ENV_HOME="$HOME/personal/dev"
 
-# Cursor. Hyprland sets these itself in envs.lua because a compositor started
-# by uwsm never reads a login shell; setting them here is what gives the i3/X11
-# session the same cursor instead of the system default.
-export XCURSOR_THEME="Bibata-Modern-Classic"
-export XCURSOR_SIZE="24"
+# The cursor, Qt and GTK theme variables used to be here. They are machine
+# defaults, not shell settings: a login shell is the one context that is *not*
+# a desktop, so a gdm session, a systemd user service and anything D-Bus
+# activated all missed them. runs/env writes them to /etc/environment and
+# /etc/environment.d instead - see the "Dark mode and theming" README section.

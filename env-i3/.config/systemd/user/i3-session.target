@@ -1,0 +1,19 @@
+[Unit]
+# What makes systemd's graphical-session.target reachable in an i3 session.
+#
+# xdg-desktop-portal is Requisite=graphical-session.target - it refuses to start
+# unless that target is already up - and nothing starts it here: gnome-session
+# does it under GNOME and uwsm does it under Hyprland, but gdm launching a bare
+# i3 does not. So the portal was permanently dead, and with it the desktop's
+# only answer to "is this a dark desktop?": Firefox, Chromium, Electron apps,
+# GTK4 and nvim's auto-dark-mode all ask the Settings portal, and all of them
+# fell back to light no matter what dconf said.
+#
+# BindsTo rather than Wants: it both pulls graphical-session.target up when the
+# i3 config starts this, and takes this down again with it, so the portal stops
+# with the session instead of outliving it.
+Description=i3 session
+Documentation=man:systemd.special(7)
+BindsTo=graphical-session.target
+Wants=graphical-session-pre.target
+After=graphical-session-pre.target

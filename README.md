@@ -20,6 +20,7 @@ is `./dev-env profile <hypr\|i3> && ./dev-env link`, then log out and back in.
 dev-env              orchestrator: link dotfiles, run installers
 lib/platform.sh      distro detection + per-distro package name map
 runs/                one installer per tool
+runs/env             machine-wide environment variables (/etc/environment)
 env-common/          dotfiles for every machine
 env-hypr/            Hyprland session: compositor, waybar, launch-* scripts
 env-i3/              i3 session: i3, i3status, .xprofile
@@ -60,6 +61,77 @@ Consequence worth remembering: with `ZDOTDIR` set, a `~/.zshrc` is **ignored
 entirely**. If zsh ever seems to load the wrong config, check `echo $ZDOTDIR`
 first.
 
+### Dark mode and theming
+
+On a machine with no desktop environment, dark mode is not one setting — every
+toolkit asks somewhere different, and the pieces fail independently, which is
+why it can look half-applied:
+
+| What reads it | Where it looks | Kept in |
+| --- | --- | --- |
+| Firefox, Chromium, Electron, GTK4/libadwaita, nvim's `auto-dark-mode` | the **Settings portal** (`org.freedesktop.appearance color-scheme`) | dconf — applied by `runs/theme` |
+| GTK3 and GTK4 | `GTK_THEME=Adwaita:dark` | **system variable** — `runs/env` |
+| Qt 6 | `QT_QPA_PLATFORMTHEME`, `QT_STYLE_OVERRIDE` → `~/.config/qt6ct`, drawn by Kvantum's `KvGnomeDark` | **system variable** + `env-common` |
+| GTK3/GTK4, where no variable is set | `~/.config/gtk-{3,4}.0/settings.ini` | `env-common` |
+
+#### System variables
+
+The theme variables are machine defaults, so they are set machine-wide rather
+than in a login shell — a login shell is the one context that is *not* a
+desktop, and a gdm session, a systemd user service and anything D-Bus activates
+all read none of it. `runs/env` owns one list and writes it to both files that
+carry system variables, because they cover different processes:
+
+| File | Read by | Covers |
+| --- | --- | --- |
+| `/etc/environment` | `pam_env`, at login | the session and everything descended from it: gdm's X session, i3, everything i3 spawns |
+| `/etc/environment.d/90-dev-env.conf` | the systemd user manager | user services and D-Bus activated programs — `xdg-desktop-portal` and its backends among them |
+
+Both are root-owned and outside stow, like the logind lid drop-in, so `link`
+cannot restore them and `doctor` checks them instead. `/etc/environment` is not
+ours alone — Ubuntu ships a `PATH` in it — so the installer rewrites only its
+own delimited block. **They are read at login**, so nothing already running
+picks up a change; `doctor` reports the file and the running session separately
+for exactly that reason.
+
+`GTK_THEME` is the floor, not the whole story: libadwaita apps ignore it and
+follow the portal, which is why the dconf key stays the primary setting.
+
+The portal row is the one that matters and the one that was broken. Under GNOME
+the settings daemon pushes the dconf key into XSettings and every app picks it
+up; under i3 nothing does, so GTK3 needs `settings.ini` — but the *portal* is
+what the browsers and Electron apps ask, and it was not running at all:
+
+- `xdg-desktop-portal.service` is `Requisite=graphical-session.target`, and
+  nothing under a bare i3 ever reaches that target — `gnome-session` does it
+  under GNOME, `uwsm` under Hyprland. `env-i3/.config/systemd/user/i3-session.target`
+  is what the i3 config starts to bring it up, in the same `exec_always` that
+  hands `DISPLAY`, `XAUTHORITY` and `XDG_CURRENT_DESKTOP` to the user manager
+  and the D-Bus activation environment.
+- This box has the gnome, gtk and hyprland portal backends installed and none
+  of them claims i3, so `env-i3/.config/xdg-desktop-portal/i3-portals.conf`
+  names `gtk` — the only backend that reads the colour scheme out of dconf.
+  It is `i3-portals.conf`, not `portals.conf`, so the Hyprland session keeps
+  its own backend for screencast.
+
+`doctor` checks both halves separately, because the key can be right while the
+portal is dead and every browser still renders light:
+
+```sh
+  ok    color scheme: prefer-dark
+  ok    settings portal reports: dark
+```
+
+To flip the machine to light, both halves move together — the dconf key and the
+two `settings.ini` files:
+
+```sh
+gsettings set org.gnome.desktop.interface color-scheme prefer-light
+```
+
+GTK2 is deliberately not covered: dark GTK2 needs a whole theme package
+(`gnome-themes-extra`) for a toolkit nothing here still uses.
+
 ### Displays (i3)
 
 The laptop lives on an external monitor with the lid shut, and only opens for
@@ -99,6 +171,65 @@ Workspaces are deliberately left where they are when the panel switches on.
 i3 already moves them off an output as it is disabled, and dragging them back
 mid-meeting is worse than an empty second screen. To pin one, add a
 `workspace 5 output eDP-1` line to the i3 config.
+
+### Locking (i3)
+
+One locker, three ways into it, all through `xss-lock`:
+
+| Trigger | Path |
+| --- | --- |
+| `$mod+Ctrl+l` | `loginctl lock-session` → logind's `Lock` signal → `xss-lock` |
+| 10 minutes idle | X screensaver timer (`xset s 600 600`) → `xss-lock` |
+| suspend (incl. the laptop's lid) | logind's `PrepareForSleep` → `xss-lock` |
+
+`xss-lock` is what makes one `i3lock` serve all three, so there is a single
+locker to configure rather than three. Two flags are load-bearing:
+`--transfer-sleep-lock` hands `i3lock` logind's inhibitor fd so the lock is up
+*before* the machine suspends rather than racing it, and `i3lock -n` (nofork) is
+required because `xss-lock` tracks the locker as its own child — a locker that
+forks away looks like it exited immediately, and `xss-lock` would treat the
+screen as unlocked while `i3lock` is still up.
+
+`doctor` checks that `xss-lock` is running *and* that the screensaver timeout is
+non-zero, because those fail apart: with `xset` missing the process runs happily
+and simply never fires on idle, and a lock that silently never happens is the
+worst way for one to fail.
+
+**Gotcha worth keeping:** i3 re-runs `exec_always` on **restart**
+(`$mod+Ctrl+r`), not on **reload** (`$mod+Shift+c`). A reload re-reads the
+config and updates bindings, so it looks like it worked, while every autostart
+in the file is untouched. Every `exec_always` in this config — the locker, the
+session target, the monitor scripts — needs a restart to take effect.
+
+Ubuntu: `i3lock`, `xss-lock` and `x11-xserver-utils` (which carries both `xset`
+and `xrandr`) are all in noble's universe, and noble's `i3lock` ships
+`/etc/pam.d/i3lock` — without that PAM file the lock screen would accept no
+password at all.
+
+### Screenshots (i3)
+
+`CTRL+SHIFT+P` runs `flameshot gui -c`. On Fedora that hung for 30 seconds and
+then failed with "Unable to capture screen", while the same binding worked on
+the laptop — flameshot 14 asks the **freedesktop screenshot portal** even on
+X11, and flameshot 12, which Ubuntu ships, captures X11 natively.
+
+No portal backend can screenshot an i3 session: the gtk backend answers by
+calling `org.gnome.Shell.Screenshot`, which does not exist outside GNOME, and
+the hyprland one needs Hyprland. So there are two halves to this:
+
+- `runs/i3` sets `useX11LegacyScreenshot=true` in `~/.config/flameshot/flameshot.ini`,
+  flameshot's own escape hatch — its help text names i3 as the case it is for.
+  Not stowed: flameshot rewrites that file through QSettings, which replaces it
+  and would leave a symlink dangling the first time any other setting changed.
+  `doctor` checks the key instead.
+- `i3-portals.conf` sets `org.freedesktop.impl.portal.Screenshot=none`, so
+  anything *else* that asks the portal for a screenshot gets an immediate "no
+  implementation" rather than a 30-second hang on a service that will never
+  answer.
+
+Flameshot warns that a future version may drop the legacy X11 path. If that
+lands before this machine moves to Wayland, the replacement is a different tool
+(`maim`, `scrot`), not a different flameshot setting.
 
 ### System TUIs (i3)
 
