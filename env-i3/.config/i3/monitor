@@ -1,94 +1,49 @@
 #!/usr/bin/env bash
-# Applies the display layout for the current lid + external-monitor state.
-#
-#   lid closed + external   external only, primary            (the desk default)
-#   lid open   + external   both on, laptop primary and left  (meetings)
-#   no external             laptop only, primary
-#
-# Idempotent on purpose: i3 runs it at start and on reload, monitor-watch runs
-# it on every hotplug, and $mod+Shift+s runs it by hand. One place decides what
-# the screens do, and running it twice changes nothing.
-#
-# Closing the lid with nothing else plugged in is deliberately not handled here
-# - that is logind's job, via the HandleLidSwitch drop-in that runs/i3 writes.
-
+# ~/.config/i3/monitor
+# Applies display layout based on lid state + whatever external output is
+# actually connected right now (handles both the desk dock's DP-1 and the
+# work USB-C dock, which may enumerate under a different name entirely).
 set -euo pipefail
 
-# xrandr calls the panel eDP-1 on this laptop, but reading it out of the
-# connector list rather than hardcoding it keeps the script working on any
-# other machine - and the old version hardcoded it twice, once in a place the
-# INTERNAL variable was supposed to cover.
-INTERNAL="$(
-    xrandr --query |
-        awk '$2 == "connected" && $1 ~ /^(eDP|LVDS)/ { print $1; exit }'
-)"
+INTERNAL="eDP-1"
 
-mapfile -t EXTERNALS < <(
-    xrandr --query |
-        awk -v internal="$INTERNAL" '$2 == "connected" && $1 != internal { print $1 }'
-)
+LID_STATE_FILE=$(echo /proc/acpi/button/lid/*/state 2>/dev/null | awk '{print $1}')
 
-# /proc/acpi/button/lid exists on essentially every laptop, but a machine
-# without it (or a desktop) must not fall into the lid-closed branch.
-lid_state() {
-    local f
-    for f in /proc/acpi/button/lid/*/state; do
-        [[ -r "$f" ]] || continue
-        awk '{ print $NF }' "$f"
-        return
-    done
-    echo unknown
+get_lid_state() {
+    [ -r "$LID_STATE_FILE" ] && awk '{print $2}' "$LID_STATE_FILE" || echo "open"
 }
 
-LID="$(lid_state)"
+# First connected output that isn't the internal panel. If your work dock ever
+# exposes more than one live external head at once, this only picks the
+# first — extend the loop below if you need multi-external support.
+external_output() {
+    xrandr --query |
+        awk -v internal="$INTERNAL" '$2=="connected" && $1!=internal {print $1; exit}'
+}
 
-# A machine with no eDP/LVDS connector at all is not a laptop; leave the panel
-# out of every xrandr call rather than passing --output "" and failing.
-if [[ -z "$INTERNAL" ]]; then
-    echo "No internal panel detected; treating every output as external."
+# Best available mode for a given output (xrandr marks the preferred one
+# with a trailing "+"). Falls back to the first listed mode if none is
+# flagged preferred.
+preferred_mode() {
+    local output="$1"
+    xrandr --query |
+        awk -v out="$output" '
+            $0 ~ "^"out" " {found=1; next}
+            found && /^[A-Za-z]/ {exit}
+            found && /\+/ {print $1; exit}
+        '
+}
+
+LID="$(get_lid_state)"
+EXT="$(external_output || true)"
+
+if [ -n "$EXT" ] && [ "$LID" = "closed" ]; then
+    MODE="$(preferred_mode "$EXT")"
+    xrandr --output "$INTERNAL" --off --output "$EXT" --mode "${MODE:-3840x2160}" --primary
+elif [ -n "$EXT" ]; then
+    MODE="$(preferred_mode "$EXT")"
+    xrandr --output "$INTERNAL" --auto --primary \
+        --output "$EXT" --mode "${MODE:-3840x2160}" --right-of "$INTERNAL"
+else
+    xrandr --output "$INTERNAL" --auto --primary
 fi
-
-if ((${#EXTERNALS[@]} == 0)); then
-    echo "No external monitor; laptop only."
-    [[ -n "$INTERNAL" ]] && xrandr --output "$INTERNAL" --auto --primary
-    exit 0
-fi
-
-echo "External: ${EXTERNALS[*]}"
-echo "Lid: $LID"
-
-args=()
-
-primary_set=0
-prev=""
-
-if [[ -n "$INTERNAL" ]] && [[ "$LID" == "closed" ]]; then
-    echo "Lid closed -> external only."
-    # i3 relocates the workspaces off an output as it is disabled, so turning
-    # the panel off is the whole job; the old explicit move loop walked every
-    # workspace to do what i3 had already done, flickering through all ten and
-    # leaving the focus parked on the last one.
-    args+=(--output "$INTERNAL" --off)
-elif [[ -n "$INTERNAL" ]]; then
-    echo "Lid open -> laptop primary, external to its right."
-    args+=(--output "$INTERNAL" --auto --primary)
-    primary_set=1
-    prev="$INTERNAL"
-fi
-
-# Chain the externals left to right. Usually there is exactly one, but a dock
-# with two would otherwise have the second land stacked at 0x0 on top of the
-# first.
-for out in "${EXTERNALS[@]}"; do
-    args+=(--output "$out" --auto)
-
-    ((primary_set)) || {
-        args+=(--primary)
-        primary_set=1
-    }
-
-    [[ -n "$prev" ]] && args+=(--right-of "$prev")
-    prev="$out"
-done
-
-xrandr "${args[@]}"

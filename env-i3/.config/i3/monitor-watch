@@ -1,53 +1,23 @@
 #!/usr/bin/env bash
-# Re-runs ./monitor whenever the display situation changes: a cable goes in or
-# out, or the lid opens or shuts.
-#
-# Why a poll loop rather than a udev rule: closing the lid emits no drm uevent.
-# The panel stays "connected" - only the ACPI lid button moves - so a udev rule
-# would catch the hotplug and miss the case this laptop spends its whole day
-# in. One loop covers both, with no root-owned rule file and no DISPLAY/
-# XAUTHORITY plumbing to get a udev-spawned process back into the X session.
-#
-# A tick is a handful of sysfs reads, so the poll is close to free; xrandr only
-# runs when the signature actually changed.
+# ~/.config/i3/monitor-watch
+set -euo pipefail
 
-set -uo pipefail
+LOCKFILE="/tmp/i3-monitor-watch.lock"
+LOGFILE="/tmp/i3-monitor-watch.log"
+exec 200>"$LOCKFILE"
+if ! flock -n 200; then
+    exit 0
+fi
 
-INTERVAL="${MONITOR_WATCH_INTERVAL:-2}"
-MONITOR="$(dirname "$(readlink -f "$0")")/monitor"
+echo "$(date): watcher started" >>"$LOGFILE"
 
-# i3 starts this with exec_always, so every reload launches another one. Take a
-# lock and let the duplicate exit, rather than accumulating one watcher per
-# reload for the life of the session.
-exec 9>"${XDG_RUNTIME_DIR:-/tmp}/i3-monitor-watch.lock"
-flock -n 9 || exit 0
-
-# Connector names are included so the signature changes even when one output is
-# unplugged and another plugged in between two ticks.
-signature() {
-    grep -H . /sys/class/drm/*/status /proc/acpi/button/lid/*/state 2>/dev/null
-}
-
-last=""
-failing=0
-
-while :; do
-    now="$(signature)"
-
-    if [[ "$now" != "$last" ]]; then
-        # A transient xrandr failure - a monitor still mid-handshake, most
-        # often - must not take the watcher down with it, or the session
-        # silently stops reacting to the lid until the next i3 reload. Leaving
-        # $last alone on failure means the next tick retries; the flag keeps a
-        # genuinely broken setup from writing a line every $INTERVAL seconds.
-        if "$MONITOR"; then
-            last="$now"
-            failing=0
-        elif ((!failing)); then
-            failing=1
-            echo "monitor failed; retrying every ${INTERVAL}s" >&2
+dbus-monitor --system \
+    "type='signal',interface='org.freedesktop.DBus.Properties',path='/org/freedesktop/login1'" |
+    while read -r line; do
+        if echo "$line" | grep -q "LidClosed"; then
+            echo "$(date): saw LidClosed line: $line" >>"$LOGFILE"
+            sleep 0.3
+            ~/.config/i3/monitor
+            echo "$(date): ran monitor, exit=$?" >>"$LOGFILE"
         fi
-    fi
-
-    sleep "$INTERVAL"
-done
+    done
