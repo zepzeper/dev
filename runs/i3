@@ -73,6 +73,37 @@ else
     echo "flameshot: added [General] $FLAMESHOT_KEY=true"
 fi
 
+# Idle locks, and only locks. xss-lock owns the idle timeout (see the i3
+# config); logind carries an idle action of its own, and if that ever became a
+# suspend the two would both fire - the screen locks and then the machine
+# sleeps behind it, which is not what locking a screen means to anyone.
+#
+# "ignore" is already the built-in default, so this changes nothing today. It
+# is written down because a default is not a promise: a distro upgrade or one
+# stray edit to logind.conf flips it silently, and the symptom - a workstation
+# that goes to sleep while you read - reads as a hardware fault rather than a
+# setting. doctor asserts the live value for the same reason.
+#
+# This is about *idle* only. The lid drop-in below is deliberately left alone:
+# closing a laptop is a deliberate act and still suspends.
+sudo install -d -m 755 /etc/systemd/logind.conf.d
+sudo tee /etc/systemd/logind.conf.d/20-idle.conf >/dev/null <<'IDLE'
+[Login]
+IdleAction=ignore
+IDLE
+echo "idle drop-in written: logind will not suspend on idle"
+
+# gsd-power does not run in an i3 session, so this key bites nothing today -
+# but it currently says "suspend after 15 minutes on AC", and that is what
+# would take the machine down the moment anyone logs into GNOME to check
+# something. The battery equivalent is left as it is: a laptop that sleeps on
+# battery is behaving correctly.
+if command -v gsettings >/dev/null; then
+    gsettings set org.gnome.settings-daemon.plugins.power \
+        sleep-inactive-ac-type nothing
+    echo "gnome idle-suspend on AC: nothing"
+fi
+
 # Closing the lid at the desk must not suspend the machine. logind's "docked"
 # test counts *external* connectors only - it skips eDP/LVDS - so one monitor
 # plugged in is enough to select HandleLidSwitchDocked, and the bare

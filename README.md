@@ -195,6 +195,30 @@ non-zero, because those fail apart: with `xset` missing the process runs happily
 and simply never fires on idle, and a lock that silently never happens is the
 worst way for one to fail.
 
+**Idle locks; it never suspends.** Three separate things had to agree on that,
+and they are checked separately because they drift apart:
+
+| Mechanism | Setting | Effect |
+| --- | --- | --- |
+| `xss-lock` + X screensaver | `xset s 600 600` | locks after 10 min |
+| DPMS | `xset dpms 0 0 900` | powers the **monitor** down after 15 min — display power, not system sleep |
+| logind | `IdleAction=ignore` (`/etc/systemd/logind.conf.d/20-idle.conf`) | logind takes no idle action of its own |
+
+`ignore` is already systemd's default, so the drop-in changes nothing today —
+it is written down because a default is not a promise, and a machine that
+sleeps while you read looks like a hardware fault rather than a setting.
+`doctor` asserts the value logind is actually running with, not the file.
+
+GNOME's `sleep-inactive-ac-type` was still set to `suspend`; `gsd-power` never
+runs in an i3 session so it bit nothing, but it would have taken the machine
+down the first time anyone logged into GNOME. `runs/i3` sets it to `nothing`.
+The battery equivalent is deliberately left alone — a laptop that sleeps on
+battery is behaving correctly.
+
+Suspend itself still locks first, and the laptop's lid still suspends: closing
+a lid is a deliberate act, and `--transfer-sleep-lock` means the lock is up
+before the machine goes down.
+
 **Gotcha worth keeping:** i3 re-runs `exec_always` on **restart**
 (`$mod+Ctrl+r`), not on **reload** (`$mod+Shift+c`). A reload re-reads the
 config and updates bindings, so it looks like it worked, while every autostart

@@ -175,6 +175,23 @@ check_lock() {
         ok "idle lock after ${timeout}s"
     fi
 
+    # The other half of "idle locks": logind must not also be acting on idle,
+    # or the machine suspends itself behind the lock screen. Asked of the
+    # running logind rather than read out of the drop-in, because a file that
+    # was never reloaded says nothing about current behaviour.
+    local idle
+    idle="$(busctl get-property org.freedesktop.login1 /org/freedesktop/login1 \
+        org.freedesktop.login1.Manager IdleAction 2>/dev/null || true)"
+
+    case "$idle" in
+        '') ;; # no logind to ask - nothing to assert
+        *'"ignore"'*) ok "logind idle action: ignore (locks, never suspends)" ;;
+        *)
+            bad "logind idle action is ${idle#s }, so the machine suspends itself on idle"
+            hint "./dev-env i3"
+            ;;
+    esac
+
     return 0
 }
 
