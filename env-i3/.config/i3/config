@@ -26,6 +26,7 @@ exec_always --no-startup-id sh -c 'dbus-update-activation-environment --systemd 
 exec_always --no-startup-id ~/.config/i3/monitor
 exec_always --no-startup-id ~/.config/i3/monitor-watch
 exec_always --no-startup-id /usr/bin/flameshot 
+#exec_always --no-startup-id /usr/bin/feh  
 
 # Hyprland uses ALT+drag to move and SUPER+drag to resize; i3 has one modifier
 # for both, so ALT matches the more common of the two.
