@@ -8,7 +8,7 @@ font-size = 24
 
 window-padding-y = 14, 0
 
-theme = Rose Pine Moon
+#theme = Rose Pine Moon
 #background = 161521 
 background = 131519 
 confirm-close-surface=false
@@ -25,3 +25,6 @@ window-decoration = none
 
 # Disable Ctrl+Enter fullscreen keybind
 keybind = ctrl+enter=unbind
+keybind = ctrl+shift+equal=increase_font_size:1
+keybind = ctrl+shift+minus=decrease_font_size:1
+keybind = ctrl+shift+0=reset_font_size
