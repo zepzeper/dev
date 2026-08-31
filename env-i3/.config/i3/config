@@ -73,6 +73,7 @@ bindsym $mod+Shift+w exec --no-startup-id xdg-open "https://web.whatsapp.com/"
 bindsym $mod+Shift+d exec --no-startup-id xdg-open "https://excalidraw.com/"
 bindsym $mod+Shift+x exec --no-startup-id xdg-open "https://x.com/"
 bindsym $mod+Shift+m exec --no-startup-id xdg-open "https://mastodon.social/home/"
+bindsym $mod+Shift+o exec --no-startup-id sh -c 'XDG_CURRENT_DESKTOP=GNOME gnome-control-center'
 
 bindsym $mod+Ctrl+l exec --no-startup-id loginctl lock-session
 

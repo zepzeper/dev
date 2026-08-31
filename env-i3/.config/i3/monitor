@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 # ~/.config/i3/monitor
-# Applies display layout based on lid state + whatever external output is
-# actually connected right now (handles both the desk dock's DP-1 and the
-# work USB-C dock, which may enumerate under a different name entirely).
 set -euo pipefail
 
 INTERNAL="eDP-1"
@@ -13,17 +10,11 @@ get_lid_state() {
     [ -r "$LID_STATE_FILE" ] && awk '{print $2}' "$LID_STATE_FILE" || echo "open"
 }
 
-# First connected output that isn't the internal panel. If your work dock ever
-# exposes more than one live external head at once, this only picks the
-# first — extend the loop below if you need multi-external support.
 external_output() {
     xrandr --query |
         awk -v internal="$INTERNAL" '$2=="connected" && $1!=internal {print $1; exit}'
 }
 
-# Best available mode for a given output (xrandr marks the preferred one
-# with a trailing "+"). Falls back to the first listed mode if none is
-# flagged preferred.
 preferred_mode() {
     local output="$1"
     xrandr --query |
@@ -34,8 +25,21 @@ preferred_mode() {
         '
 }
 
+# Explicitly turn off any output xrandr lists as connected=false but still
+# carrying a live mode/position (i.e. active in X even though physically
+# disconnected) — this is what left i3 thinking DP-1 was alive after it
+# actually dropped.
+turn_off_stale_outputs() {
+    xrandr --query | awk '/ disconnected /{print $1}' | while read -r out; do
+        [ "$out" = "$INTERNAL" ] && continue
+        xrandr --output "$out" --off 2>/dev/null || true
+    done
+}
+
 LID="$(get_lid_state)"
 EXT="$(external_output || true)"
+
+turn_off_stale_outputs "$EXT"
 
 if [ -n "$EXT" ] && [ "$LID" = "closed" ]; then
     MODE="$(preferred_mode "$EXT")"
