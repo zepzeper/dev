@@ -103,3 +103,6 @@ source "$ZDOTDIR/.zsh_profile"
 
 # opencode
 export PATH=/home/wouter/.opencode/bin:$PATH
+
+# opencode
+export PATH=/home/zepzeper/.opencode/bin:$PATH
