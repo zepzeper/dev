@@ -2,17 +2,38 @@
 # ~/.config/i3/monitor
 set -euo pipefail
 
-INTERNAL="eDP-1"
-
-LID_STATE_FILE=$(echo /proc/acpi/button/lid/*/state 2>/dev/null | awk '{print $1}')
-
-get_lid_state() {
-    [ -r "$LID_STATE_FILE" ] && awk '{print $2}' "$LID_STATE_FILE" || echo "open"
+# The internal panel is discovered rather than assumed. This used to be a
+# hardcoded INTERNAL="eDP-1", which is true of the laptop and false of the
+# workstation - it has no internal output at all - so every xrandr command this
+# script built there named an output that does not exist, xrandr refused the
+# whole command, and the script failed. That took $mod+Shift+s, the binding
+# whose entire job is recovering a display that came back wrong, down with it.
+internal_output() {
+    xrandr --query | awk '$1 ~ /^(eDP|LVDS)/ && $2 ~ /^(dis)?connected$/ {print $1; exit}'
 }
 
+# First connected output that is not the internal panel.
 external_output() {
+    local internal="$1"
     xrandr --query |
-        awk -v internal="$INTERNAL" '$2=="connected" && $1!=internal {print $1; exit}'
+        awk -v internal="$internal" '$2=="connected" && $1!=internal {print $1; exit}'
+}
+
+connected_count() {
+    xrandr --query | awk '$2=="connected"' | wc -l
+}
+
+lid_state() {
+    local f
+    for f in /proc/acpi/button/lid/*/state; do
+        [ -r "$f" ] || continue
+        awk '{print $2}' "$f"
+        return
+    done
+    # No lid device: a desktop. The old code globbed for the state file and fed
+    # the unexpanded pattern to test, which happened to reach the same answer,
+    # but only by accident.
+    echo open
 }
 
 preferred_mode() {
@@ -25,29 +46,58 @@ preferred_mode() {
         '
 }
 
-# Explicitly turn off any output xrandr lists as connected=false but still
-# carrying a live mode/position (i.e. active in X even though physically
-# disconnected) — this is what left i3 thinking DP-1 was alive after it
-# actually dropped.
-turn_off_stale_outputs() {
-    xrandr --query | awk '/ disconnected /{print $1}' | while read -r out; do
-        [ "$out" = "$INTERNAL" ] && continue
-        xrandr --output "$out" --off 2>/dev/null || true
-    done
+# Outputs X is still driving - they carry a mode and a position - even though
+# the connector now reads disconnected. Those are the stale ones worth turning
+# off, and the reason the test is "disconnected AND still active" rather than
+# just "disconnected":
+#
+# a sleeping DisplayPort monitor drops its link, so the connector reads
+# disconnected for as long as the panel is off. The old version turned off
+# every disconnected output unconditionally, so a run that landed while the
+# screen was in DPMS off would `xrandr --output DP-1 --off` the workstation's
+# only display. Nothing then re-enabled it - the rebuild command named eDP-1
+# and failed - and no keypress could bring it back, which is the black screen
+# that only a reboot cleared.
+stale_outputs() {
+    xrandr --query | awk '$2=="disconnected" && $3 ~ /^[0-9]+x[0-9]+\+/ {print $1}'
 }
 
-LID="$(get_lid_state)"
-EXT="$(external_output || true)"
+INTERNAL="$(internal_output)"
+EXT="$(external_output "$INTERNAL")"
+LID="$(lid_state)"
 
-turn_off_stale_outputs "$EXT"
+# Nothing is connected anywhere. Either every cable really is out or, far more
+# likely, the one monitor is asleep and has dropped its link. There is no
+# layout to apply either way, and the one thing this script must never do is
+# switch off the last output it can see - so leave X exactly as it is.
+if [ "$(connected_count)" -eq 0 ]; then
+    exit 0
+fi
 
-if [ -n "$EXT" ] && [ "$LID" = "closed" ]; then
+for out in $(stale_outputs); do
+    [ "$out" = "$INTERNAL" ] && continue
+    xrandr --output "$out" --off 2>/dev/null || true
+done
+
+if [ -n "$EXT" ]; then
     MODE="$(preferred_mode "$EXT")"
-    xrandr --output "$INTERNAL" --off --output "$EXT" --mode "${MODE:-3840x2160}" --primary
-elif [ -n "$EXT" ]; then
-    MODE="$(preferred_mode "$EXT")"
+    # --auto is the fallback rather than a fixed 3840x2160: a mode the monitor
+    # does not advertise is refused, and refusing takes the whole command with
+    # it, including the part that lights the screen back up.
+    EXT_MODE=(--mode "$MODE")
+    [ -n "$MODE" ] || EXT_MODE=(--auto)
+fi
+
+if [ -n "$INTERNAL" ] && [ -n "$EXT" ] && [ "$LID" = "closed" ]; then
+    xrandr --output "$INTERNAL" --off --output "$EXT" "${EXT_MODE[@]}" --primary
+elif [ -n "$INTERNAL" ] && [ -n "$EXT" ]; then
     xrandr --output "$INTERNAL" --auto --primary \
-        --output "$EXT" --mode "${MODE:-3840x2160}" --right-of "$INTERNAL"
+        --output "$EXT" "${EXT_MODE[@]}" --right-of "$INTERNAL"
+elif [ -n "$EXT" ]; then
+    # The workstation, and a laptop docked with the panel off. Naming only the
+    # outputs that exist is what makes this branch work on a machine with no
+    # internal panel.
+    xrandr --output "$EXT" "${EXT_MODE[@]}" --primary
 else
     xrandr --output "$INTERNAL" --auto --primary
 fi

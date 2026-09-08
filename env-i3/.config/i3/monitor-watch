@@ -9,15 +9,58 @@ if ! flock -n 200; then
     exit 0
 fi
 
-echo "$(date): watcher started" >>"$LOGFILE"
+log() { printf '%s: %s\n' "$(date)" "$*" >>"$LOGFILE"; }
 
+lid_state() {
+    local f
+    for f in /proc/acpi/button/lid/*/state; do
+        [ -r "$f" ] || continue
+        awk '{print $2}' "$f"
+        return
+    done
+    echo none
+}
+
+# A machine with no lid has nothing for this watcher to react to, and running
+# it there was actively harmful: the old filter matched the bare string
+# "LidClosed" anywhere in dbus-monitor's output, so an unrelated logind
+# property change - a Bluetooth headset connecting is enough, since logind
+# re-reads its buttons when an input device appears - ran the layout script on
+# the workstation. See the sibling monitor script for what that then did to a
+# sleeping DisplayPort monitor.
+if [ "$(lid_state)" = "none" ]; then
+    log "no lid on this machine, watcher not needed"
+    exit 0
+fi
+
+log "watcher started"
+LAST="$(lid_state)"
+
+# The signal is only a nudge to go and look; /proc is the answer. logind
+# batches property changes and dbus-monitor prints each one over several lines,
+# so matching a property name line by line says nothing about the value it
+# changed to - and acting on a lid that did not actually move is what this
+# watcher must not do.
+# 200>&- closes the lock fd in dbus-monitor rather than letting it inherit one.
+# An inherited copy keeps the lock held for as long as dbus-monitor lives, and
+# it outlives the shell that started it - so a watcher killed by hand left an
+# orphan holding the lock, and every later start, i3 restarts included, took the
+# flock branch and exited silently. The watcher could not be revived without
+# finding the orphan first.
 dbus-monitor --system \
-    "type='signal',interface='org.freedesktop.DBus.Properties',path='/org/freedesktop/login1'" |
-    while read -r line; do
-        if echo "$line" | grep -q "LidClosed"; then
-            echo "$(date): saw LidClosed line: $line" >>"$LOGFILE"
-            sleep 0.3
-            ~/.config/i3/monitor
-            echo "$(date): ran monitor, exit=$?" >>"$LOGFILE"
+    "type='signal',interface='org.freedesktop.DBus.Properties',path='/org/freedesktop/login1'" 200>&- |
+    while read -r _; do
+        NOW="$(lid_state)"
+        [ "$NOW" = "$LAST" ] && continue
+        LAST="$NOW"
+        log "lid is now $NOW"
+        sleep 0.3
+        # Split from the log line: writing exit=$? inside the same string as
+        # $(date) reported date's status, so this always logged exit=0 however
+        # the script had gone.
+        if ~/.config/i3/monitor; then
+            log "ran monitor, exit=0"
+        else
+            log "ran monitor, exit=$?"
         fi
     done
