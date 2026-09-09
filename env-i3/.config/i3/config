@@ -20,9 +20,10 @@ font pango:Iosevka Term 10
 # whether it is dark gets no answer. See .config/systemd/user/i3-session.target.
 exec_always --no-startup-id sh -c 'dbus-update-activation-environment --systemd DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE; systemctl --user start i3-session.target'
 
-# monitor applies the layout once, now; monitor-watch keeps applying it as the
-# lid and the cable move. Both are exec_always so an i3 reload revives them,
-# and monitor-watch holds a lock so the reload does not stack up watchers.
+# monitor applies the layout once, now; monitor-watch reapplies it when the lid
+# moves. Both are exec_always so an i3 reload revives them, and monitor-watch
+# holds a lock so the reload does not stack up watchers - on a machine with no
+# lid it finds nothing to watch and exits instead.
 exec_always --no-startup-id ~/.config/i3/monitor
 exec_always --no-startup-id ~/.config/i3/monitor-watch
 exec_always --no-startup-id /usr/bin/flameshot 
@@ -114,9 +115,22 @@ exec_always --no-startup-id sh -c 'pkill -x xss-lock; exec xss-lock --transfer-s
 # matters to screensavers that redraw, which a blank one does not.
 exec_always --no-startup-id xset s 600 600
 
-# Power the panel down five minutes after that, rather than leaving a 4K screen
-# lit all night. standby and suspend are disabled (0); only "off" is set.
-exec_always --no-startup-id xset dpms 0 0 900
+# Keep the timer, drop the blanking. The timer is the only part xss-lock reads,
+# and i3lock paints the screen dark anyway, so X blanking underneath it buys
+# nothing - and on the workstation it costs: a blanked screen is a screen the
+# monitor is free to treat as idle.
+exec_always --no-startup-id xset s noblank
+
+# The panel is never powered down. It used to go off five minutes after the
+# lock, which is the sensible thing to do to a 4K screen at night and the wrong
+# thing to do to this one: the workstation drives a DisplayPort monitor through
+# nouveau, the sleeping monitor drops its DP link, and the link did not reliably
+# come back - the display stayed black through the unlock and only a reboot
+# cleared it. Leaving the backlight on costs power; it does not cost a session.
+#
+# The laptop is unaffected either way. It suspends on lid close, and the lock
+# that comes with the suspend is xss-lock's, not DPMS's.
+exec_always --no-startup-id xset dpms 0 0 0
 
 # ------------------------------------------------------------------
 # Windows

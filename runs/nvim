@@ -11,25 +11,17 @@ DEV_ENV_HOME="$(cd "$(dirname "$0")/.." && pwd)"
 NVIM_SM="env-common/.config/nvim"
 
 install_nvim() {
-    case "$OS" in
-        fedora)
-            enable_copr "agriffis/neovim-nightly"
-            install_packages neovim
-            return
-            ;;
-    esac
-
     # Ubuntu's neovim is far too old for this config and the PPA lags too.
     # Never `nvim --version | head -1 | grep -q`: head closes the pipe, nvim
     # dies of SIGPIPE and pipefail reports 141, so the check always fails.
-    if command -v nvim >/dev/null; then
-        local version
-        version="$(nvim --version 2>/dev/null | head -1 || true)"
-        if grep -qE 'v0\.(1[1-9]|[2-9][0-9])' <<<"$version"; then
-            echo "nvim already recent enough: $version"
-            return
-        fi
-    fi
+    # if command -v nvim >/dev/null; then
+    #     local version
+    #     version="$(nvim --version 2>/dev/null | head -1 || true)"
+    #     if grep -qE 'v0\.(1[1-9]|[2-9][0-9])' <<<"$version"; then
+    #         echo "nvim already recent enough: $version"
+    #         return
+    #     fi
+    # fi
 
     install_release nvim \
         "https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-$(arch_name x86_64 arm64).tar.gz" \
