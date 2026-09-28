@@ -152,6 +152,7 @@ bindsym Mod1+h resize grow   width  100 px
 bindsym Mod1+l resize shrink width  100 px
 bindsym Mod1+k resize shrink height 100 px
 bindsym Mod1+j resize grow   height 100 px
+bindsym Mod1+r mode "resize"
 
 bindsym $mod+t floating toggle
 bindsym $mod+f fullscreen toggle
@@ -226,5 +227,5 @@ exec --no-startup-id nm-applet
 # polkit-gnome under /usr/lib. Try each and exec the first that exists.
 exec --no-startup-id sh -c 'for a in /usr/libexec/polkit-mate-authentication-agent-1 /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1 /usr/libexec/polkit-gnome-authentication-agent-1; do [ -x "$a" ] && exec "$a"; done'
 
-
 for_window [class="XTerm"] floating enable
+for_window [class="Cssh"] floating enable
