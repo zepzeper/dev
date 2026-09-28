@@ -226,3 +226,5 @@ exec --no-startup-id nm-applet
 # polkit-gnome under /usr/lib. Try each and exec the first that exists.
 exec --no-startup-id sh -c 'for a in /usr/libexec/polkit-mate-authentication-agent-1 /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1 /usr/libexec/polkit-gnome-authentication-agent-1; do [ -x "$a" ] && exec "$a"; done'
 
+
+for_window [class="XTerm"] floating enable
